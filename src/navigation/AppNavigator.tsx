@@ -1,15 +1,14 @@
+// src/navigation/AppNavigator.tsx
+
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import api from '../services/api';
 import LoginScreen from '../screens/LoginScreen';
 import Tabs from './Tabs';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
-
-export type RootStackParamList = {
-  Login: undefined;
-  Tabs: undefined;
-};
+import { RootStackParamList } from './navigationTypes';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -17,19 +16,28 @@ export default function AppNavigator() {
   const [logado, setLogado] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const checkToken = async () => {
+    const verificarToken = async () => {
       const token = await AsyncStorage.getItem('token');
-      setLogado(!!token); 
+      if (!token) return setLogado(false);
+
+      try {
+        await api.get('/alertas'); // endpoint protegido
+        setLogado(true);
+      } catch {
+        await AsyncStorage.removeItem('token');
+        setLogado(false);
+      }
     };
-    checkToken();
+
+    verificarToken();
   }, []);
 
   if (logado === null) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loading}>
         <ActivityIndicator size="large" color="#0000ff" />
       </View>
-    ); 
+    );
   }
 
   return (
@@ -46,10 +54,9 @@ export default function AppNavigator() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
+  loading: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
   },
 });

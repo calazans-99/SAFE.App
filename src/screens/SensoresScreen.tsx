@@ -16,66 +16,77 @@ interface Sensor {
   id: number;
   tipo: string;
   unidade: string;
-  descricao: string;
+  valorMinimo: number;
+  valorMaximo: number;
 }
 
 export default function SensoresScreen() {
   const [sensores, setSensores] = useState<Sensor[]>([]);
   const [tipo, setTipo] = useState('');
   const [unidade, setUnidade] = useState('');
-  const [descricao, setDescricao] = useState('');
+  const [valorMinimo, setValorMinimo] = useState('');
+  const [valorMaximo, setValorMaximo] = useState('');
+  const [editandoId, setEditandoId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Função para carregar sensores
   const carregarSensores = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get<Sensor[]>('/sensores'); // Tipando a resposta
-      setSensores(res.data); // Atualiza a lista de sensores
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        Alert.alert('Erro ao carregar sensores', error.message);
-      } else {
-        Alert.alert('Erro ao carregar sensores', 'Erro desconhecido.');
-      }
+      const res = await api.get<Sensor[]>('/sensor');
+      setSensores(res.data);
+    } catch (error) {
+      Alert.alert('Erro', 'Falha ao carregar sensores');
     } finally {
-      setLoading(false); // Finaliza o carregamento
+      setLoading(false);
     }
   }, []);
 
-  // Carregar sensores ao montar o componente
   useEffect(() => {
     carregarSensores();
   }, [carregarSensores]);
 
-  // Função para salvar sensor
-  const salvarSensor = async () => {
-    if (!tipo || !unidade) {
+  const salvarOuAtualizarSensor = async () => {
+    if (!tipo || !unidade || !valorMinimo || !valorMaximo) {
       Alert.alert('Erro', 'Preencha todos os campos!');
       return;
     }
 
-    const novoSensor = { tipo, unidade, descricao };
+    const sensor = {
+      tipo,
+      unidade,
+      valorMinimo: parseFloat(valorMinimo),
+      valorMaximo: parseFloat(valorMaximo),
+    };
 
     setLoading(true);
     try {
-      await api.post('/sensores', novoSensor); // Tipando a requisição
+      if (editandoId !== null) {
+        await api.put(`/sensor/${editandoId}`, sensor);
+      } else {
+        await api.post('/sensor', sensor);
+      }
+
       setTipo('');
       setUnidade('');
-      setDescricao('');
-      await carregarSensores(); // Atualiza a lista de sensores após o cadastro
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        Alert.alert('Erro ao salvar sensor', error.message);
-      } else {
-        Alert.alert('Erro ao salvar sensor', 'Erro desconhecido.');
-      }
+      setValorMinimo('');
+      setValorMaximo('');
+      setEditandoId(null);
+      await carregarSensores();
+    } catch {
+      Alert.alert('Erro', 'Falha ao salvar ou atualizar sensor');
     } finally {
       setLoading(false);
     }
   };
 
-  // Função para excluir sensor
+  const editarSensor = (sensor: Sensor) => {
+    setTipo(sensor.tipo);
+    setUnidade(sensor.unidade);
+    setValorMinimo(sensor.valorMinimo.toString());
+    setValorMaximo(sensor.valorMaximo.toString());
+    setEditandoId(sensor.id);
+  };
+
   const excluirSensor = (id: number) => {
     Alert.alert('Confirmação', 'Deseja realmente excluir este sensor?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -85,14 +96,10 @@ export default function SensoresScreen() {
         onPress: async () => {
           setLoading(true);
           try {
-            await api.delete(`/sensores/${id}`); // Exclui o sensor
-            await carregarSensores(); // Atualiza a lista de sensores
-          } catch (error: unknown) {
-            if (error instanceof Error) {
-              Alert.alert('Erro ao excluir sensor', error.message);
-            } else {
-              Alert.alert('Erro ao excluir sensor', 'Erro desconhecido.');
-            }
+            await api.delete(`/sensor/${id}`);
+            await carregarSensores();
+          } catch {
+            Alert.alert('Erro', 'Falha ao excluir sensor');
           } finally {
             setLoading(false);
           }
@@ -101,17 +108,13 @@ export default function SensoresScreen() {
     ]);
   };
 
-  // Função para renderizar cada item da lista
   const renderSensor = ({ item }: { item: Sensor }) => (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{item.tipo}</Text>
       <Text style={styles.cardInfo}>Unidade: {item.unidade}</Text>
-      <Text style={styles.cardInfo}>Descrição: {item.descricao}</Text>
-      <Button
-        title="Excluir"
-        onPress={() => excluirSensor(item.id)} // Corrigido o evento de onPress
-        accessibilityLabel="Excluir este sensor"
-      />
+      <Text style={styles.cardInfo}>Mín: {item.valorMinimo} | Máx: {item.valorMaximo}</Text>
+      <Button title="Editar" onPress={() => editarSensor(item)} />
+      <Button title="Excluir" onPress={() => excluirSensor(item.id)} />
     </View>
   );
 
@@ -124,30 +127,31 @@ export default function SensoresScreen() {
         placeholder="Tipo"
         value={tipo}
         onChangeText={setTipo}
-        accessible={true}
-        accessibilityLabel="Digite o tipo do sensor"
       />
       <TextInput
         style={styles.input}
         placeholder="Unidade"
         value={unidade}
         onChangeText={setUnidade}
-        accessible={true}
-        accessibilityLabel="Digite a unidade de medida"
       />
       <TextInput
         style={styles.input}
-        placeholder="Descrição"
-        value={descricao}
-        onChangeText={setDescricao}
-        accessible={true}
-        accessibilityLabel="Digite a descrição do sensor"
+        placeholder="Valor Mínimo"
+        value={valorMinimo}
+        onChangeText={setValorMinimo}
+        keyboardType="decimal-pad"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Valor Máximo"
+        value={valorMaximo}
+        onChangeText={setValorMaximo}
+        keyboardType="decimal-pad"
       />
 
       <Button
-        title="Salvar Sensor"
-        onPress={salvarSensor}
-        accessibilityLabel="Salvar novo sensor"
+        title={editandoId ? 'Atualizar Sensor' : 'Salvar Sensor'}
+        onPress={salvarOuAtualizarSensor}
       />
 
       {loading ? (

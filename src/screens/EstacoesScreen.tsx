@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, Text, View, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  TextInput,
+  Button,
+} from 'react-native';
 import api from '../services/api';
 import theme from '../styles/theme';
 
@@ -12,43 +21,129 @@ interface Estacao {
 
 export default function EstacoesScreen() {
   const [estacoes, setEstacoes] = useState<Estacao[]>([]);
+  const [nome, setNome] = useState('');
+  const [localizacao, setLocalizacao] = useState('');
+  const [cidade, setCidade] = useState('');
+  const [editandoId, setEditandoId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+
+  const carregarEstacoes = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/estacoes');
+      setEstacoes(res.data);
+    } catch (error) {
+      Alert.alert('Erro', 'Falha ao carregar estações.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    api.get('/estacoes')
-      .then(response => setEstacoes(response.data))
-      .catch((error) => {
-        console.error('Erro ao carregar estações:', error);
-        Alert.alert('Erro', 'Falha ao carregar as estações. Tente novamente mais tarde.');
-      })
-      .finally(() => setLoading(false)); // Garantir que o carregamento seja finalizado
+    carregarEstacoes();
   }, []);
 
-  const renderEstacao = (estacao: Estacao) => (
-    <View key={estacao.id} style={styles.card}>
-      <Text style={styles.cardTitle}>{estacao.nome}</Text>
-      <Text style={styles.cardInfo}>📍 Localização: {estacao.localizacao}</Text>
-      <Text style={styles.cardInfo}>🏙️ Cidade: {estacao.cidade}</Text>
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => alert(`Estação ${estacao.nome} clicada!`)}
-        accessible={true}
-        accessibilityLabel={`Ver detalhes da estação ${estacao.nome}`}
-        accessibilityRole="button"
-      >
-        <Text style={styles.buttonText}>Ver Detalhes</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const salvarOuAtualizarEstacao = async () => {
+    if (!nome || !localizacao || !cidade) {
+      Alert.alert('Erro', 'Preencha todos os campos!');
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      if (editandoId !== null) {
+        await api.put(`/estacoes/${editandoId}`, { nome, localizacao, cidade });
+      } else {
+        await api.post('/estacoes', { nome, localizacao, cidade });
+      }
+
+      setNome('');
+      setLocalizacao('');
+      setCidade('');
+      setEditandoId(null);
+      carregarEstacoes();
+    } catch {
+      Alert.alert('Erro', 'Falha ao salvar estação');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const editarEstacao = (estacao: Estacao) => {
+    setNome(estacao.nome);
+    setLocalizacao(estacao.localizacao);
+    setCidade(estacao.cidade);
+    setEditandoId(estacao.id);
+  };
+
+  const excluirEstacao = (id: number) => {
+    Alert.alert('Confirmar exclusão', 'Deseja excluir esta estação?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.delete(`/estacoes/${id}`);
+            carregarEstacoes();
+          } catch {
+            Alert.alert('Erro', 'Falha ao excluir estação');
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Estações Cadastradas</Text>
+      <Text style={styles.title}>Gerenciar Estações</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Nome"
+        value={nome}
+        onChangeText={setNome}
+        autoFocus={editandoId !== null}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Localização"
+        value={localizacao}
+        onChangeText={setLocalizacao}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Cidade"
+        value={cidade}
+        onChangeText={setCidade}
+      />
+
+      <Button
+        title={editandoId ? 'Atualizar Estação' : 'Cadastrar Estação'}
+        onPress={salvarOuAtualizarEstacao}
+        disabled={salvando}
+      />
+
+      {salvando && <ActivityIndicator size="large" color={theme.colors.primary} />}
+
+      <View style={styles.divider} />
 
       {loading ? (
         <ActivityIndicator size="large" color={theme.colors.primary} />
       ) : (
-        estacoes.map(renderEstacao)
+        estacoes.map((estacao) => (
+          <View key={estacao.id} style={styles.card}>
+            <Text style={styles.cardTitle}>{estacao.nome}</Text>
+            <Text style={styles.cardInfo}>📍 Localização: {estacao.localizacao}</Text>
+            <Text style={styles.cardInfo}>🏙️ Cidade: {estacao.cidade}</Text>
+
+            <View style={styles.buttonRow}>
+              <Button title="Editar" onPress={() => editarEstacao(estacao)} />
+              <Button title="Excluir" onPress={() => excluirEstacao(estacao.id)} />
+            </View>
+          </View>
+        ))
       )}
     </ScrollView>
   );
@@ -65,6 +160,19 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     textAlign: 'center',
     marginBottom: theme.spacing.medium,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: theme.spacing.small,
+    marginBottom: theme.spacing.small,
+    backgroundColor: '#fff',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#ccc',
+    marginVertical: theme.spacing.large,
   },
   card: {
     backgroundColor: theme.colors.white,
@@ -84,15 +192,9 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.small,
     color: theme.colors.text,
   },
-  button: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.small,
-    marginTop: theme.spacing.medium,
-    borderRadius: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    textAlign: 'center',
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
 });

@@ -3,6 +3,8 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { ThemeProvider } from 'styled-components';
 import { StatusBar, SafeAreaView, Text } from 'react-native';
 import { useColorScheme } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from './src/services/api';
 
 const lightTheme = {
   colors: {
@@ -57,18 +59,42 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps> {
 export default function App() {
   const scheme = useColorScheme();
   const [theme, setTheme] = useState(lightTheme);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    if (scheme === 'dark') {
-      setTheme(darkTheme);
-    } else {
-      setTheme(lightTheme);
-    }
+    const isDarkMode = scheme === 'dark';
+    setTheme(isDarkMode ? darkTheme : lightTheme);
   }, [scheme]);
+
+  useEffect(() => {
+    const autoLogin = async () => {
+      try {
+        const response = await api.post('/auth/login', {
+          username: 'admin',
+          password: 'admin',
+        });
+        await AsyncStorage.setItem('token', response.data.token);
+        console.log('Login automático realizado com sucesso');
+      } catch (error) {
+        console.error('Falha no login automático:', error);
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+
+    autoLogin();
+  }, []);
+
+  if (!authChecked) {
+    return null;
+  }
 
   return (
     <ThemeProvider theme={theme}>
-      <StatusBar barStyle={theme.colors.background === '#fff' ? 'dark-content' : 'light-content'} />
+      <StatusBar
+        barStyle={theme.colors.background === '#fff' ? 'dark-content' : 'light-content'}
+        backgroundColor={theme.colors.background}
+      />
       <ErrorBoundary>
         <AppNavigator />
       </ErrorBoundary>

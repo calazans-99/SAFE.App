@@ -19,6 +19,7 @@ interface Alerta {
   id: number;
   mensagem: string;
   nivelRisco: string;
+  status: string;
   dataHora: string;
 }
 
@@ -26,6 +27,7 @@ export default function AlertasScreen() {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [mensagem, setMensagem] = useState('');
   const [nivelRisco, setNivelRisco] = useState('');
+  const [status, setStatus] = useState('Ativo');
   const [editando, setEditando] = useState<Alerta | null>(null);
   const [carregando, setCarregando] = useState(false);
 
@@ -44,16 +46,17 @@ export default function AlertasScreen() {
   const limparCampos = () => {
     setMensagem('');
     setNivelRisco('');
+    setStatus('Ativo');
     setEditando(null);
   };
 
   const salvarAlerta = () => {
-    if (!mensagem.trim() || !nivelRisco.trim()) {
-      Alert.alert('Atenção', 'Preencha todos os campos antes de salvar.');
+    if (!mensagem.trim() || !nivelRisco.trim() || !status.trim()) {
+      Alert.alert('Atenção', 'Preencha todos os campos.');
       return;
     }
 
-    const novoAlerta = { mensagem, nivelRisco };
+    const novoAlerta = { mensagem, nivelRisco, status };
 
     const requisicao = editando
       ? api.put(`/alertas/${editando.id}`, novoAlerta)
@@ -71,6 +74,7 @@ export default function AlertasScreen() {
     setEditando(alerta);
     setMensagem(alerta.mensagem);
     setNivelRisco(alerta.nivelRisco);
+    setStatus(alerta.status);
   };
 
   const excluirAlerta = (id: number) => {
@@ -92,22 +96,13 @@ export default function AlertasScreen() {
     <View style={styles.card}>
       <Text style={styles.cardTitulo}>⚠️ {item.nivelRisco}</Text>
       <Text style={styles.cardMensagem}>{item.mensagem}</Text>
+      <Text style={styles.cardStatus}>📌 Status: {item.status}</Text>
       <Text style={styles.cardData}>📅 {new Date(item.dataHora).toLocaleString()}</Text>
       <View style={styles.botoes}>
-        <TouchableOpacity
-          onPress={() => editarAlerta(item)}
-          style={styles.botaoEditar}
-          accessible={true}
-          accessibilityLabel="Editar alerta"
-        >
+        <TouchableOpacity onPress={() => editarAlerta(item)} style={styles.botaoEditar}>
           <Text style={styles.textoBotao}>Editar</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => excluirAlerta(item.id)}
-          style={styles.botaoExcluir}
-          accessible={true}
-          accessibilityLabel="Excluir alerta"
-        >
+        <TouchableOpacity onPress={() => excluirAlerta(item.id)} style={styles.botaoExcluir}>
           <Text style={styles.textoBotao}>Excluir</Text>
         </TouchableOpacity>
       </View>
@@ -124,17 +119,9 @@ export default function AlertasScreen() {
           style={styles.input}
           value={mensagem}
           onChangeText={setMensagem}
-          accessible={true}
-          accessibilityLabel="Digite a mensagem do alerta"
         />
 
-        <Picker
-          selectedValue={nivelRisco}
-          onValueChange={(itemValue) => setNivelRisco(itemValue)}
-          style={styles.picker}
-          accessible={true}
-          accessibilityLabel="Selecione o nível de risco"
-        >
+        <Picker selectedValue={nivelRisco} onValueChange={setNivelRisco} style={styles.picker}>
           <Picker.Item label="Selecione o nível de risco" value="" />
           <Picker.Item label="Baixo" value="Baixo" />
           <Picker.Item label="Moderado" value="Moderado" />
@@ -142,12 +129,12 @@ export default function AlertasScreen() {
           <Picker.Item label="Crítico" value="Crítico" />
         </Picker>
 
-        <TouchableOpacity
-          style={styles.botaoSalvar}
-          onPress={salvarAlerta}
-          accessible={true}
-          accessibilityLabel="Salvar alerta"
-        >
+        <Picker selectedValue={status} onValueChange={setStatus} style={styles.picker}>
+          <Picker.Item label="Ativo" value="Ativo" />
+          <Picker.Item label="Resolvido" value="Resolvido" />
+        </Picker>
+
+        <TouchableOpacity style={styles.botaoSalvar} onPress={salvarAlerta}>
           <Text style={styles.textoBotao}>Salvar</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -191,7 +178,7 @@ const styles = StyleSheet.create({
   },
   picker: {
     backgroundColor: '#fff',
-    marginTop: theme.spacing.small,
+    marginBottom: theme.spacing.small,
     borderRadius: 8,
   },
   botaoSalvar: {
@@ -226,6 +213,10 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.small,
     color: theme.colors.text,
   },
+  cardStatus: {
+    fontSize: theme.fontSizes.small,
+    color: theme.colors.text,
+  },
   cardData: {
     color: '#666',
     fontSize: theme.fontSizes.small,
@@ -233,6 +224,7 @@ const styles = StyleSheet.create({
   botoes: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 8,
   },
   botaoEditar: {
     backgroundColor: '#007bff',
