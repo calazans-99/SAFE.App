@@ -77,6 +77,16 @@ Este aplicativo é totalmente integrado à **Global Solution 2025** e busca forn
 ```bash
 git clone https://github.com/seu-usuario/SAFE.App.git
 cd SAFE.App
+
+cmd/ip config/ atualizar seu ip em api.tsx
+
+const api = axios.create({
+  baseURL: 'http://"""""192.168.0.67""""":8080/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+rodar o projeto java https://github.com/calazans-99/GsJava2TDSPH.git
 ```
 
 2. **Instale as dependências**:
@@ -98,6 +108,7 @@ npx expo start
 - Você pode testar as funcionalidades principais autenticando-se com as credenciais padrão:
 
 ```
+Ele faz o login automaticamente no JWT de Java
 Usuário: admin
 Senha: admin
 ```
