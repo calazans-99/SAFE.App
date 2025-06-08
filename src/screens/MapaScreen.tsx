@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,7 +9,7 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Region } from 'react-native-maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Picker } from '@react-native-picker/picker';
@@ -38,6 +38,8 @@ export default function MapaScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [sensores, setSensores] = useState<Sensor[]>([]);
   const [estacaoSelecionada, setEstacaoSelecionada] = useState<Estacao | null>(null);
+
+  const mapRef = useRef<MapView>(null);
 
   const fetchEstacoes = async () => {
     setLoading(true);
@@ -83,6 +85,21 @@ export default function MapaScreen() {
     fetchEstacoes();
   }, []);
 
+  useEffect(() => {
+    if (cidadeSelecionada && mapRef.current) {
+      const estacao = estacoes.find((e) => e.cidade === cidadeSelecionada);
+      if (estacao) {
+        const novaRegiao: Region = {
+          latitude: estacao.latitude,
+          longitude: estacao.longitude,
+          latitudeDelta: 0.2,
+          longitudeDelta: 0.2,
+        };
+        mapRef.current.animateToRegion(novaRegiao, 1000);
+      }
+    }
+  }, [cidadeSelecionada, estacoes]);
+
   return (
     <View style={styles.container}>
       {loading ? (
@@ -101,6 +118,7 @@ export default function MapaScreen() {
           </Picker>
 
           <MapView
+            ref={mapRef}
             style={styles.map}
             initialRegion={{
               latitude:

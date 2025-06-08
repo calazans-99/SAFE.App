@@ -8,6 +8,7 @@ import {
   Button,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import api from '../services/api';
 import theme from '../styles/theme';
@@ -15,7 +16,6 @@ import theme from '../styles/theme';
 interface Estacao {
   id: number;
   nome: string;
-  localizacao: string;
   cidade: string;
   latitude: number;
   longitude: number;
@@ -24,13 +24,20 @@ interface Estacao {
 export default function EstacoesScreen() {
   const [estacoes, setEstacoes] = useState<Estacao[]>([]);
   const [nome, setNome] = useState('');
-  const [localizacao, setLocalizacao] = useState('');
   const [cidade, setCidade] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
+
+  const limparFormulario = () => {
+    setNome('');
+    setCidade('');
+    setLatitude('');
+    setLongitude('');
+    setEditandoId(null);
+  };
 
   const carregarEstacoes = async () => {
     setLoading(true);
@@ -48,53 +55,57 @@ export default function EstacoesScreen() {
     carregarEstacoes();
   }, []);
 
-  const salvarOuAtualizar = async () => {
-    if (!nome || !localizacao || !cidade || !latitude || !longitude) {
+  const salvarOuAtualizar = () => {
+    if (!nome || !cidade || !latitude || !longitude) {
       Alert.alert('Erro', 'Preencha todos os campos!');
       return;
     }
 
     const dados = {
       nome,
-      localizacao,
       cidade,
       latitude: parseFloat(latitude),
       longitude: parseFloat(longitude),
     };
 
-    setSalvando(true);
-    try {
-      if (editandoId !== null) {
-        await api.put(`/estacoes/${editandoId}`, dados);
-      } else {
-        await api.post('/estacoes', dados);
-      }
-
-      setNome('');
-      setLocalizacao('');
-      setCidade('');
-      setLatitude('');
-      setLongitude('');
-      setEditandoId(null);
-      carregarEstacoes();
-    } catch {
-      Alert.alert('Erro', 'Falha ao salvar estação.');
-    } finally {
-      setSalvando(false);
-    }
+    Alert.alert(
+      editandoId ? 'Atualizar Estação' : 'Cadastrar Estação',
+      `Deseja realmente ${editandoId ? 'atualizar' : 'salvar'} esta estação?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            setSalvando(true);
+            try {
+              if (editandoId !== null) {
+                await api.put(`/estacoes/${editandoId}`, dados);
+              } else {
+                await api.post('/estacoes', dados);
+              }
+              limparFormulario();
+              carregarEstacoes();
+            } catch {
+              Alert.alert('Erro', 'Falha ao salvar estação.');
+            } finally {
+              setSalvando(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const editarEstacao = (e: Estacao) => {
     setEditandoId(e.id);
     setNome(e.nome);
-    setLocalizacao(e.localizacao);
     setCidade(e.cidade);
     setLatitude(e.latitude.toString());
     setLongitude(e.longitude.toString());
   };
 
   const excluirEstacao = (id: number) => {
-    Alert.alert('Confirmar exclusão', 'Deseja excluir esta estação?', [
+    Alert.alert('Excluir estação', 'Deseja excluir esta estação?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Excluir',
@@ -113,57 +124,62 @@ export default function EstacoesScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Gerenciar Estações</Text>
+      <Text style={styles.title}>🏭 Gerenciar Estações</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Nome"
-        value={nome}
-        onChangeText={setNome}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Localização"
-        value={localizacao}
-        onChangeText={setLocalizacao}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Cidade"
-        value={cidade}
-        onChangeText={setCidade}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Latitude"
-        value={latitude}
-        onChangeText={setLatitude}
-        keyboardType="numeric"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Longitude"
-        value={longitude}
-        onChangeText={setLongitude}
-        keyboardType="numeric"
-      />
+      <View style={styles.formulario}>
+        <TextInput
+          style={styles.input}
+          placeholder="Nome da Estação"
+          value={nome}
+          onChangeText={setNome}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Cidade"
+          value={cidade}
+          onChangeText={setCidade}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Latitude"
+          value={latitude}
+          onChangeText={setLatitude}
+          keyboardType="numeric"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Longitude"
+          value={longitude}
+          onChangeText={setLongitude}
+          keyboardType="numeric"
+        />
 
-      <Button
-        title={editandoId ? 'Atualizar Estação' : 'Cadastrar Estação'}
-        onPress={salvarOuAtualizar}
-      />
+        <Button
+          title={editandoId ? 'Atualizar Estação' : 'Cadastrar Estação'}
+          onPress={salvarOuAtualizar}
+        />
 
-      {salvando && <ActivityIndicator size="large" color={theme.colors.primary} />}
-      {loading ? (
+        {editandoId && (
+          <Button title="Cancelar Edição" color="gray" onPress={limparFormulario} />
+        )}
+      </View>
+
+      {salvando || loading ? (
         <ActivityIndicator size="large" color={theme.colors.primary} />
       ) : (
         estacoes.map((e) => (
           <View key={e.id} style={styles.card}>
             <Text style={styles.cardTitle}>{e.nome}</Text>
-            <Text style={styles.cardInfo}>📍 {e.localizacao} - {e.cidade}</Text>
+            <Text style={styles.cardInfo}>📍 {e.cidade}</Text>
             <Text style={styles.cardInfo}>🌐 {e.latitude}, {e.longitude}</Text>
-            <Button title="Editar" onPress={() => editarEstacao(e)} />
-            <Button title="Excluir" onPress={() => excluirEstacao(e.id)} />
+            <View style={styles.cardButtons}>
+              <TouchableOpacity style={styles.botaoEditar} onPress={() => editarEstacao(e)}>
+                <Text style={styles.botaoTexto}>Editar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.botaoExcluir} onPress={() => excluirEstacao(e.id)}>
+                <Text style={styles.botaoTexto}>Excluir</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))
       )}
@@ -181,7 +197,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: theme.colors.primary,
     textAlign: 'center',
-    marginBottom: theme.spacing.medium,
+    marginBottom: theme.spacing.large,
+  },
+  formulario: {
+    marginBottom: theme.spacing.large,
   },
   input: {
     borderWidth: 1,
@@ -192,13 +211,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   card: {
-    backgroundColor: theme.colors.white,
+    backgroundColor: '#eef7ff',
     padding: theme.spacing.medium,
     marginBottom: theme.spacing.small,
     borderRadius: theme.radius.medium,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     elevation: 3,
   },
   cardTitle: {
@@ -208,5 +224,24 @@ const styles = StyleSheet.create({
   cardInfo: {
     fontSize: theme.fontSizes.small,
     color: theme.colors.text,
+  },
+  cardButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.small,
+  },
+  botaoEditar: {
+    backgroundColor: '#007bff',
+    padding: 6,
+    borderRadius: 5,
+  },
+  botaoExcluir: {
+    backgroundColor: '#dc3545',
+    padding: 6,
+    borderRadius: 5,
+  },
+  botaoTexto: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   FlatList,
   ActivityIndicator,
@@ -10,8 +9,10 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Button,
+  StyleSheet,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
 import theme from '../styles/theme';
 
@@ -29,7 +30,6 @@ export default function AlertasScreen() {
   const [editando, setEditando] = useState<Alerta | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
-
   const [filtroNivel, setFiltroNivel] = useState('');
   const [filtroTexto, setFiltroTexto] = useState('');
 
@@ -49,6 +49,21 @@ export default function AlertasScreen() {
     carregarAlertas();
   }, [carregarAlertas]);
 
+  useEffect(() => {
+    const carregarFiltros = async () => {
+      const nivelSalvo = await AsyncStorage.getItem('filtroNivelAlertas');
+      const textoSalvo = await AsyncStorage.getItem('filtroTextoAlertas');
+      if (nivelSalvo) setFiltroNivel(nivelSalvo);
+      if (textoSalvo) setFiltroTexto(textoSalvo);
+    };
+    carregarFiltros();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem('filtroNivelAlertas', filtroNivel);
+    AsyncStorage.setItem('filtroTextoAlertas', filtroTexto);
+  }, [filtroNivel, filtroTexto]);
+
   const limparCampos = () => {
     setMensagem('');
     setNivelRisco('');
@@ -62,8 +77,8 @@ export default function AlertasScreen() {
     }
 
     const dados = { mensagem, nivelRisco };
-
     setSalvando(true);
+
     try {
       if (editando) {
         await api.put(`/alertas/${editando.id}`, dados);
@@ -104,16 +119,28 @@ export default function AlertasScreen() {
   };
 
   const alertasFiltrados = alertas.filter((alerta) => {
-  const nivelOk = filtroNivel ? alerta.nivelRisco === filtroNivel : true;
-  const textoOk = (alerta.mensagem ?? '').toLowerCase().includes(filtroTexto.toLowerCase());
-  return nivelOk && textoOk;
-});
+    const nivelOk = filtroNivel ? alerta.nivelRisco === filtroNivel : true;
+    const textoOk = (alerta.mensagem || '').toLowerCase().includes(filtroTexto.toLowerCase());
+    return nivelOk && textoOk;
+  });
 
   const renderItem = ({ item }: { item: Alerta }) => (
-    <View style={styles.card}>
-      <Text style={styles.cardTitulo}>⚠️ {item.nivelRisco}</Text>
-      <Text style={styles.cardMensagem}>{item.mensagem}</Text>
-      <Text style={styles.cardData}>📅 {new Date(item.dataHora).toLocaleString()}</Text>
+    <View
+      style={[
+        styles.card,
+        item.nivelRisco === 'Crítico' && { borderLeftWidth: 6, borderLeftColor: '#dc3545' },
+        item.nivelRisco === 'Alto' && { borderLeftWidth: 6, borderLeftColor: '#f39c12' },
+        item.nivelRisco === 'Moderado' && { borderLeftWidth: 6, borderLeftColor: '#f1c40f' },
+        item.nivelRisco === 'Baixo' && { borderLeftWidth: 6, borderLeftColor: '#2ecc71' },
+      ]}
+    >
+      <Text style={styles.cardTitulo}>⚠️ {item.nivelRisco || 'Sem nível definido'}</Text>
+      <Text style={styles.cardMensagem}>{item.mensagem || 'Mensagem não disponível'}</Text>
+      <Text style={styles.cardData}>
+        📅 {item.dataHora && !isNaN(Date.parse(item.dataHora))
+          ? new Date(item.dataHora).toLocaleString()
+          : 'Data não disponível'}
+      </Text>
       <View style={styles.botoes}>
         <TouchableOpacity style={styles.botaoEditar} onPress={() => editarAlerta(item)}>
           <Text style={styles.textoBotao}>Editar</Text>
@@ -127,7 +154,7 @@ export default function AlertasScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.titulo}>Gerenciar Alertas</Text>
+      <Text style={styles.titulo}>📢 Gerenciar Alertas</Text>
 
       <View style={styles.formulario}>
         <TextInput
@@ -149,7 +176,10 @@ export default function AlertasScreen() {
           <Picker.Item label="Crítico" value="Crítico" />
         </Picker>
 
-        <Button title={editando ? 'Atualizar' : 'Salvar'} onPress={salvarAlerta} />
+        <Button
+          title={editando ? 'Atualizar Alerta' : 'Salvar Alerta'}
+          onPress={salvarAlerta}
+        />
       </View>
 
       <View style={styles.filtros}>
@@ -172,7 +202,7 @@ export default function AlertasScreen() {
         </Picker>
       </View>
 
-      {carregando || salvando ? (
+      {(carregando || salvando) ? (
         <ActivityIndicator size="large" color={theme.colors.primary} />
       ) : (
         <FlatList
@@ -200,7 +230,10 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.medium,
   },
   formulario: {
-    marginBottom: theme.spacing.large,
+    marginBottom: theme.spacing.medium,
+  },
+  filtros: {
+    marginVertical: theme.spacing.medium,
   },
   input: {
     borderWidth: 1,
@@ -210,9 +243,6 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.small,
     backgroundColor: '#fff',
   },
-  filtros: {
-    marginBottom: theme.spacing.medium,
-  },
   lista: {
     paddingBottom: theme.spacing.large,
   },
@@ -221,6 +251,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: theme.spacing.medium,
     marginBottom: theme.spacing.small,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 3,
   },
   cardTitulo: {
@@ -234,6 +267,7 @@ const styles = StyleSheet.create({
   cardData: {
     color: '#666',
     fontSize: theme.fontSizes.small,
+    marginTop: 4,
   },
   botoes: {
     flexDirection: 'row',
@@ -242,16 +276,21 @@ const styles = StyleSheet.create({
   },
   botaoEditar: {
     backgroundColor: '#007bff',
-    padding: 6,
-    borderRadius: 5,
+    padding: 8,
+    borderRadius: 6,
+    flex: 1,
+    marginRight: 4,
   },
   botaoExcluir: {
     backgroundColor: '#dc3545',
-    padding: 6,
-    borderRadius: 5,
+    padding: 8,
+    borderRadius: 6,
+    flex: 1,
+    marginLeft: 4,
   },
   textoBotao: {
     color: '#fff',
     fontWeight: 'bold',
+    textAlign: 'center',
   },
 });

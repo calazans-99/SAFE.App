@@ -7,7 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Button,
+  TouchableOpacity,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -74,10 +74,10 @@ export default function ConfigScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>⚙️ Configurações</Text>
 
-      <View style={styles.option}>
+      <View style={styles.section}>
         <Text style={styles.label}>🔔 Notificações</Text>
         <Switch
           value={notificacoes}
@@ -89,7 +89,7 @@ export default function ConfigScreen() {
         />
       </View>
 
-      <View style={styles.option}>
+      <View style={styles.section}>
         <Text style={styles.label}>🌙 Modo Escuro</Text>
         <Switch
           value={modoEscuro}
@@ -101,26 +101,29 @@ export default function ConfigScreen() {
         />
       </View>
 
-      <View style={styles.option}>
+      <View style={styles.sectionColumn}>
         <Text style={styles.label}>🌐 Idioma</Text>
-        <Picker
-          selectedValue={idioma}
-          onValueChange={(itemValue: string) => {
-            setIdioma(itemValue);
-            salvarConfiguracoes();
-          }}
-          style={styles.picker}
-        >
-          <Picker.Item label="Português" value="pt" />
-          <Picker.Item label="Inglês" value="en" />
-        </Picker>
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={idioma}
+            onValueChange={(itemValue: string) => {
+              setIdioma(itemValue);
+              salvarConfiguracoes();
+            }}
+          >
+            <Picker.Item label="Português" value="pt" />
+            <Picker.Item label="Inglês" value="en" />
+          </Picker>
+        </View>
       </View>
 
-      <View style={styles.logoutContainer}>
-        <Button title="Logout" color={theme.colors.alert} onPress={confirmarLogout} />
-        <View style={{ height: theme.spacing.small }} />
-        <Button title="Restaurar Padrões" onPress={restaurarPadroes} />
-      </View>
+      <TouchableOpacity style={styles.buttonLogout} onPress={confirmarLogout}>
+        <Text style={styles.buttonText}>Logout</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.buttonDefault} onPress={restaurarPadroes}>
+        <Text style={styles.buttonText}>Restaurar Padrões</Text>
+      </TouchableOpacity>
 
       {loading && (
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -132,32 +135,53 @@ export default function ConfigScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: theme.spacing.medium,
     backgroundColor: theme.colors.background,
   },
+  content: {
+    padding: theme.spacing.medium,
+  },
   title: {
-    fontSize: theme.fontSizes.large,
+    fontSize: theme.fontSizes.xl,
     fontWeight: 'bold',
     color: theme.colors.primary,
     textAlign: 'center',
     marginBottom: theme.spacing.large,
   },
-  option: {
+  section: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.medium,
   },
+  sectionColumn: {
+    marginBottom: theme.spacing.medium,
+  },
   label: {
     fontSize: theme.fontSizes.medium,
     color: theme.colors.text,
+    marginBottom: 4,
   },
-  picker: {
-    flex: 1,
+  pickerWrapper: {
     backgroundColor: '#fff',
     borderRadius: 8,
+    overflow: 'hidden',
   },
-  logoutContainer: {
-    marginTop: theme.spacing.large,
+  buttonLogout: {
+    backgroundColor: theme.colors.alert,
+    padding: theme.spacing.medium,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: theme.spacing.small,
+  },
+  buttonDefault: {
+    backgroundColor: theme.colors.primary,
+    padding: theme.spacing.medium,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: theme.fontSizes.medium,
   },
 });

@@ -4,10 +4,11 @@ import {
   Text,
   TextInput,
   FlatList,
-  Button,
   ActivityIndicator,
   Alert,
   StyleSheet,
+  TouchableOpacity,
+  Button,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import api from '../services/api';
@@ -33,6 +34,12 @@ export default function LeiturasScreen() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [sensores, setSensores] = useState<Sensor[]>([]);
+
+  const limparFormulario = () => {
+    setValor('');
+    setSensorId('');
+    setEditandoId(null);
+  };
 
   const carregarSensores = async () => {
     try {
@@ -64,31 +71,41 @@ export default function LeiturasScreen() {
     carregarLeituras();
   }, [sensorId]);
 
-  const salvarOuAtualizarLeitura = async () => {
+  const salvarOuAtualizarLeitura = () => {
     if (!valor || !sensorId) {
       Alert.alert('Erro', 'Preencha todos os campos!');
       return;
     }
 
-    setSalvando(true);
-    try {
-      const dados = { valor: parseFloat(valor), sensorId };
+    const dados = { valor: parseFloat(valor), sensorId };
 
-      if (editandoId !== null) {
-        await api.put(`/leitura/${editandoId}`, dados);
-      } else {
-        await api.post('/leitura', dados);
-      }
+    Alert.alert(
+      editandoId ? 'Atualizar Leitura' : 'Salvar Leitura',
+      `Deseja realmente ${editandoId ? 'atualizar' : 'salvar'} esta leitura?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            setSalvando(true);
+            try {
+              if (editandoId !== null) {
+                await api.put(`/leitura/${editandoId}`, dados);
+              } else {
+                await api.post('/leitura', dados);
+              }
 
-      setValor('');
-      setSensorId('');
-      setEditandoId(null);
-      carregarLeituras();
-    } catch {
-      Alert.alert('Erro', 'Falha ao salvar leitura');
-    } finally {
-      setSalvando(false);
-    }
+              limparFormulario();
+              carregarLeituras();
+            } catch {
+              Alert.alert('Erro', 'Falha ao salvar leitura');
+            } finally {
+              setSalvando(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const editarLeitura = (leitura: Leitura) => {
@@ -98,7 +115,7 @@ export default function LeiturasScreen() {
   };
 
   const excluirLeitura = (id: number) => {
-    Alert.alert('Confirmação', 'Deseja excluir esta leitura?', [
+    Alert.alert('Excluir leitura', 'Deseja excluir esta leitura?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Excluir',
@@ -108,7 +125,7 @@ export default function LeiturasScreen() {
             await api.delete(`/leitura/${id}`);
             carregarLeituras();
           } catch {
-            Alert.alert('Erro', 'Falha ao excluir leitura');
+            Alert.alert('Erro', 'Erro ao excluir leitura');
           }
         },
       },
@@ -117,44 +134,55 @@ export default function LeiturasScreen() {
 
   const renderItem = ({ item }: { item: Leitura }) => (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>Valor: {item.valor}</Text>
-      <Text style={styles.cardData}>
-        Data/Hora: {new Date(item.dataHora).toLocaleString()}
-      </Text>
-      <Button title="Editar" onPress={() => editarLeitura(item)} />
-      <Button title="Excluir" onPress={() => excluirLeitura(item.id)} />
+      <Text style={styles.cardTitle}>📍 Sensor ID: {item.sensorId}</Text>
+      <Text style={styles.cardInfo}>Valor: {item.valor}</Text>
+      <Text style={styles.cardData}>📅 {new Date(item.dataHora).toLocaleString()}</Text>
+      <View style={styles.cardButtons}>
+        <TouchableOpacity style={styles.botaoEditar} onPress={() => editarLeitura(item)}>
+          <Text style={styles.botaoTexto}>Editar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.botaoExcluir} onPress={() => excluirLeitura(item.id)}>
+          <Text style={styles.botaoTexto}>Excluir</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Gerenciar Leituras</Text>
+      <Text style={styles.title}>📊 Gerenciar Leituras</Text>
 
-      <Picker
-        selectedValue={sensorId}
-        onValueChange={(value) => setSensorId(value)}
-        style={styles.input}
-      >
-        <Picker.Item label="Selecione um sensor" value="" />
-        {sensores.map((s) => (
-          <Picker.Item key={s.id} label={`Sensor ${s.id} - ${s.tipo}`} value={s.id} />
-        ))}
-      </Picker>
+      <View style={styles.formulario}>
+        <Picker
+          selectedValue={sensorId}
+          onValueChange={(value) => setSensorId(value)}
+          style={styles.input}
+        >
+          <Picker.Item label="Selecione um sensor" value="" />
+          {sensores.map((s) => (
+            <Picker.Item key={s.id} label={`Sensor ${s.id} - ${s.tipo}`} value={s.id} />
+          ))}
+        </Picker>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Valor da Leitura"
-        keyboardType="numeric"
-        value={valor}
-        onChangeText={setValor}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Valor da Leitura"
+          keyboardType="numeric"
+          value={valor}
+          onChangeText={setValor}
+        />
 
-      <Button
-        title={editandoId ? 'Atualizar Leitura' : 'Salvar Leitura'}
-        onPress={salvarOuAtualizarLeitura}
-      />
+        <Button
+          title={editandoId ? 'Atualizar Leitura' : 'Salvar Leitura'}
+          onPress={salvarOuAtualizarLeitura}
+        />
 
-      {salvando || loading ? (
+        {editandoId && (
+          <Button title="Cancelar Edição" color="gray" onPress={limparFormulario} />
+        )}
+      </View>
+
+      {(salvando || loading) ? (
         <ActivityIndicator size="large" color={theme.colors.primary} />
       ) : (
         <FlatList
@@ -178,8 +206,11 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.large,
     fontWeight: 'bold',
     color: theme.colors.primary,
-    marginBottom: theme.spacing.medium,
     textAlign: 'center',
+    marginBottom: theme.spacing.medium,
+  },
+  formulario: {
+    marginBottom: theme.spacing.large,
   },
   input: {
     borderWidth: 1,
@@ -190,22 +221,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   card: {
-    backgroundColor: theme.colors.white,
+    backgroundColor: '#f0f9ff',
     borderRadius: 8,
     padding: theme.spacing.medium,
     marginBottom: theme.spacing.small,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     elevation: 3,
   },
   cardTitle: {
     fontWeight: 'bold',
     fontSize: theme.fontSizes.medium,
   },
-  cardData: {
-    color: '#666',
+  cardInfo: {
     fontSize: theme.fontSizes.small,
+  },
+  cardData: {
+    fontSize: theme.fontSizes.small,
+    color: '#666',
+    marginTop: 4,
+  },
+  cardButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.small,
+  },
+  botaoEditar: {
+    backgroundColor: '#007bff',
+    padding: 6,
+    borderRadius: 5,
+  },
+  botaoExcluir: {
+    backgroundColor: '#dc3545',
+    padding: 6,
+    borderRadius: 5,
+  },
+  botaoTexto: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   list: {
     paddingBottom: theme.spacing.large,

@@ -1,66 +1,77 @@
 import React from 'react';
-import { ScrollView, Text, StyleSheet, TouchableOpacity, ActivityIndicator, View } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import theme from '../styles/theme';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
+import theme from '../styles/theme';
 import { RootStackParamList } from '../navigation/navigationTypes';
 
 export default function InstrucoesScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
+  const Secao = ({
+    icon,
+    label,
+    description,
+  }: {
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    description: string;
+  }) => (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Ionicons name={icon} size={20} color={theme.colors.alert} />
+        <Text style={styles.sectionTitle}> {label}</Text>
+      </View>
+      <Text style={styles.text}>{description}</Text>
+    </View>
+  );
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Instruções de Uso</Text>
+      <Text style={styles.title}>📖 Instruções de Uso</Text>
 
-      <Text style={styles.sectionTitle}>
-        <Ionicons name="map-outline" size={20} color={theme.colors.alert} /> 📍 Mapa
-      </Text>
-      <Text style={styles.text}>
-        Acesse o mapa para visualizar as estações e riscos em tempo real.
-      </Text>
-
-      <Text style={styles.sectionTitle}>
-        <Ionicons name="stats-chart-outline" size={20} color={theme.colors.alert} /> 📡 Leituras
-      </Text>
-      <Text style={styles.text}>
-        Veja as leituras dos sensores, como temperatura, umidade e pressão.
-      </Text>
-
-      <Text style={styles.sectionTitle}>
-        <Ionicons name="warning-outline" size={20} color={theme.colors.alert} /> ⚠️ Alertas
-      </Text>
-      <Text style={styles.text}>
-        Cadastre, atualize ou exclua alertas de risco identificados.
-      </Text>
-
-      <Text style={styles.sectionTitle}>
-        <Ionicons name="pulse-outline" size={20} color={theme.colors.alert} /> 📊 Riscos
-      </Text>
-      <Text style={styles.text}>
-        Acompanhe os níveis de risco por região e data.
-      </Text>
-
-      <Text style={styles.sectionTitle}>
-        <Ionicons name="location-outline" size={20} color={theme.colors.alert} /> 📍 Estações
-      </Text>
-      <Text style={styles.text}>
-        Consulte as estações cadastradas e sua localização.
-      </Text>
-
-      <Text style={styles.sectionTitle}>
-        <Ionicons name="settings-outline" size={20} color={theme.colors.alert} /> 🛠️ Configurações
-      </Text>
-      <Text style={styles.text}>
-        Ajuste notificações e preferências do aplicativo.
-      </Text>
+      <Secao
+        icon="map-outline"
+        label="Mapa"
+        description="Acesse o mapa para visualizar as estações e riscos em tempo real."
+      />
+      <Secao
+        icon="stats-chart-outline"
+        label="Leituras"
+        description="Veja as leituras dos sensores, como temperatura, umidade e pressão."
+      />
+      <Secao
+        icon="warning-outline"
+        label="Alertas"
+        description="Cadastre, atualize ou exclua alertas de risco identificados."
+      />
+      <Secao
+        icon="pulse-outline"
+        label="Riscos"
+        description="Acompanhe os níveis de risco por região e data."
+      />
+      <Secao
+        icon="location-outline"
+        label="Estações"
+        description="Consulte as estações cadastradas e sua localização."
+      />
+      <Secao
+        icon="settings-outline"
+        label="Configurações"
+        description="Ajuste notificações e preferências do aplicativo."
+      />
 
       <View style={styles.logout}>
         <TouchableOpacity
           style={styles.button}
           onPress={() => navigation.navigate('Login')}
-          accessible={true}
-          accessibilityLabel="Sair e voltar para a tela de login"
-          accessibilityRole="button"
+          accessibilityLabel="Sair do aplicativo"
         >
           <Text style={styles.buttonText}>Sair</Text>
         </TouchableOpacity>
@@ -83,19 +94,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: theme.spacing.large,
   },
+  section: {
+    marginBottom: theme.spacing.medium,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   sectionTitle: {
     fontSize: theme.fontSizes.medium,
     fontWeight: '600',
-    marginTop: theme.spacing.medium,
-    marginBottom: theme.spacing.small,
     color: theme.colors.alert,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   text: {
     fontSize: theme.fontSizes.small,
     color: theme.colors.text,
-    marginBottom: theme.spacing.small,
   },
   logout: {
     marginTop: theme.spacing.large,

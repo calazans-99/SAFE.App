@@ -1,54 +1,18 @@
-interface ThemeColors {
-  primary: string;
-  secondary: string;
-  background: string;
-  alert: string; 
-  success: string;
-  danger: string;
-  warning: string;
-  text: string;
-  white: string;
-  info: string;
-  card: string;
-}
+const activePalette = 'light';
 
-interface Theme {
+const theme = {
   colors: {
-    white: any;
-    background: any;
-    primary: any;
-    alert: any;
-    text: any;
-    secondary: any;
-    light: ThemeColors;
-    dark: ThemeColors;
-  };
-  fontSizes: {
-    tiny: number;
-    small: number;
-    medium: number;
-    large: number;
-    xlarge: number;
-    extraLarge: number;
-  };
-  spacing: {
-    none: number;
-    tiny: number;
-    small: number;
-    medium: number;
-    large: number;
-    xlarge: number;
-  };
-  radius: {
-    small: number;
-    medium: number;
-    large: number;
-    pill: number;
-  };
-}
-
-const theme: Theme = {
-  colors: {
+    primary: activePalette === 'light' ? '#1d3557' : '#121212',
+    secondary: activePalette === 'light' ? '#457b9d' : '#3700b3',
+    background: activePalette === 'light' ? '#f1faee' : '#181818',
+    alert: activePalette === 'light' ? '#e63946' : '#f44336',
+    success: activePalette === 'light' ? '#2a9d8f' : '#03dac5',
+    danger: activePalette === 'light' ? '#c62828' : '#b00020',
+    warning: activePalette === 'light' ? '#f4a261' : '#ff9800',
+    text: activePalette === 'light' ? '#333' : '#e0e0e0',
+    white: activePalette === 'light' ? '#fff' : '#ffffff',
+    info: activePalette === 'light' ? '#00b4d8' : '#03a9f4',
+    card: activePalette === 'light' ? '#ffffff' : '#333333',
     light: {
       primary: '#1d3557',
       secondary: '#457b9d',
@@ -75,12 +39,6 @@ const theme: Theme = {
       info: '#03a9f4',
       card: '#333333',
     },
-    white: undefined,
-    background: undefined,
-    primary: undefined,
-    alert: undefined,
-    text: undefined,
-    secondary: undefined
   },
   fontSizes: {
     tiny: 10,
@@ -89,6 +47,7 @@ const theme: Theme = {
     large: 22,
     xlarge: 28,
     extraLarge: 36,
+    xl: 28,
   },
   spacing: {
     none: 0,

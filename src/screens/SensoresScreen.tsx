@@ -3,11 +3,12 @@ import {
   View,
   Text,
   TextInput,
-  Button,
   FlatList,
+  Button,
   ActivityIndicator,
   Alert,
   StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 import api from '../services/api';
 import theme from '../styles/theme';
@@ -27,6 +28,13 @@ export default function SensoresScreen() {
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [salvando, setSalvando] = useState(false);
+
+  const limparFormulario = () => {
+    setTipo('');
+    setUnidade('');
+    setDescricao('');
+    setEditandoId(null);
+  };
 
   const carregarSensores = async () => {
     setLoading(true);
@@ -51,25 +59,34 @@ export default function SensoresScreen() {
     }
 
     const dados = { tipo, unidade, descricao };
-    setSalvando(true);
 
-    try {
-      if (editandoId !== null) {
-        await api.put(`/sensor/${editandoId}`, dados);
-      } else {
-        await api.post('/sensor', dados);
-      }
+    Alert.alert(
+      editandoId ? 'Confirmar Atualização' : 'Confirmar Cadastro',
+      `Deseja ${editandoId ? 'atualizar' : 'cadastrar'} este sensor?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            setSalvando(true);
+            try {
+              if (editandoId !== null) {
+                await api.put(`/sensor/${editandoId}`, dados);
+              } else {
+                await api.post('/sensor', dados);
+              }
 
-      setTipo('');
-      setUnidade('');
-      setDescricao('');
-      setEditandoId(null);
-      carregarSensores();
-    } catch {
-      Alert.alert('Erro', 'Falha ao salvar sensor');
-    } finally {
-      setSalvando(false);
-    }
+              limparFormulario();
+              carregarSensores();
+            } catch {
+              Alert.alert('Erro', 'Falha ao salvar sensor');
+            } finally {
+              setSalvando(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const editarSensor = (sensor: Sensor) => {
@@ -80,7 +97,7 @@ export default function SensoresScreen() {
   };
 
   const excluirSensor = (id: number) => {
-    Alert.alert('Confirmar exclusão', 'Deseja excluir este sensor?', [
+    Alert.alert('Excluir Sensor', 'Tem certeza que deseja excluir?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Excluir',
@@ -102,41 +119,51 @@ export default function SensoresScreen() {
 
   const renderItem = ({ item }: { item: Sensor }) => (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>{item.tipo}</Text>
+      <Text style={styles.cardTitle}>🔧 {item.tipo}</Text>
       <Text style={styles.cardInfo}>Unidade: {item.unidade}</Text>
       <Text style={styles.cardInfo}>Descrição: {item.descricao}</Text>
-      <Button title="Editar" onPress={() => editarSensor(item)} />
-      <Button title="Excluir" onPress={() => excluirSensor(item.id)} />
+      <View style={styles.cardButtons}>
+        <TouchableOpacity style={styles.botaoEditar} onPress={() => editarSensor(item)}>
+          <Text style={styles.botaoTexto}>Editar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.botaoExcluir} onPress={() => excluirSensor(item.id)}>
+          <Text style={styles.botaoTexto}>Excluir</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Gerenciar Sensores</Text>
+      <Text style={styles.title}>📡 Gerenciar Sensores</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Tipo"
-        value={tipo}
-        onChangeText={setTipo}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Unidade"
-        value={unidade}
-        onChangeText={setUnidade}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Descrição"
-        value={descricao}
-        onChangeText={setDescricao}
-      />
-
-      <Button
-        title={editandoId ? 'Atualizar Sensor' : 'Salvar Sensor'}
-        onPress={salvarOuAtualizarSensor}
-      />
+      <View style={styles.formulario}>
+        <TextInput
+          style={styles.input}
+          placeholder="Tipo do sensor (ex: Temperatura)"
+          value={tipo}
+          onChangeText={setTipo}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Unidade (ex: °C, %, ppm)"
+          value={unidade}
+          onChangeText={setUnidade}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Descrição detalhada"
+          value={descricao}
+          onChangeText={setDescricao}
+        />
+        <Button
+          title={editandoId ? 'Atualizar Sensor' : 'Salvar Sensor'}
+          onPress={salvarOuAtualizarSensor}
+        />
+        {editandoId && (
+          <Button title="Cancelar Edição" color="gray" onPress={limparFormulario} />
+        )}
+      </View>
 
       {(loading || salvando) ? (
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -162,8 +189,11 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.large,
     fontWeight: 'bold',
     color: theme.colors.primary,
-    marginBottom: theme.spacing.medium,
     textAlign: 'center',
+    marginBottom: theme.spacing.medium,
+  },
+  formulario: {
+    marginBottom: theme.spacing.large,
   },
   input: {
     borderWidth: 1,
@@ -174,22 +204,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   card: {
-    backgroundColor: theme.colors.white,
+    backgroundColor: '#f7f9fc',
     borderRadius: 8,
     padding: theme.spacing.medium,
     marginBottom: theme.spacing.small,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     elevation: 3,
   },
   cardTitle: {
     fontWeight: 'bold',
     fontSize: theme.fontSizes.medium,
+    marginBottom: 4,
   },
   cardInfo: {
     fontSize: theme.fontSizes.small,
     color: theme.colors.text,
+  },
+  cardButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.small,
+  },
+  botaoEditar: {
+    backgroundColor: '#007bff',
+    padding: 6,
+    borderRadius: 5,
+  },
+  botaoExcluir: {
+    backgroundColor: '#dc3545',
+    padding: 6,
+    borderRadius: 5,
+  },
+  botaoTexto: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   list: {
     paddingBottom: theme.spacing.large,
