@@ -28,11 +28,10 @@ interface Sensor {
 export default function LeiturasScreen() {
   const [leituras, setLeituras] = useState<Leitura[]>([]);
   const [valor, setValor] = useState('');
-  const [sensorId, setSensorId] = useState<number | null>(null);
+  const [sensorId, setSensorId] = useState<number | ''>('');
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
-
   const [sensores, setSensores] = useState<Sensor[]>([]);
 
   const carregarSensores = async () => {
@@ -47,10 +46,7 @@ export default function LeiturasScreen() {
   const carregarLeituras = async () => {
     setLoading(true);
     try {
-      const endpoint = sensorId
-        ? `/leitura?sensorId=${sensorId}`
-        : '/leitura';
-
+      const endpoint = sensorId ? `/leitura?sensorId=${sensorId}` : '/leitura';
       const res = await api.get<Leitura[]>(endpoint);
       setLeituras(res.data);
     } catch {
@@ -85,6 +81,7 @@ export default function LeiturasScreen() {
       }
 
       setValor('');
+      setSensorId('');
       setEditandoId(null);
       carregarLeituras();
     } catch {
@@ -138,7 +135,7 @@ export default function LeiturasScreen() {
         onValueChange={(value) => setSensorId(value)}
         style={styles.input}
       >
-        <Picker.Item label="Selecione um sensor" value={null} />
+        <Picker.Item label="Selecione um sensor" value="" />
         {sensores.map((s) => (
           <Picker.Item key={s.id} label={`Sensor ${s.id} - ${s.tipo}`} value={s.id} />
         ))}

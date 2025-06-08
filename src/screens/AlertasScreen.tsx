@@ -28,15 +28,21 @@ export default function AlertasScreen() {
   const [nivelRisco, setNivelRisco] = useState('');
   const [editando, setEditando] = useState<Alerta | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+
   const [filtroNivel, setFiltroNivel] = useState('');
   const [filtroTexto, setFiltroTexto] = useState('');
 
-  const carregarAlertas = useCallback(() => {
+  const carregarAlertas = useCallback(async () => {
     setCarregando(true);
-    api.get<Alerta[]>('/alertas')
-      .then((response) => setAlertas(response.data))
-      .catch(() => Alert.alert('Erro', 'Falha ao carregar os alertas'))
-      .finally(() => setCarregando(false));
+    try {
+      const res = await api.get<Alerta[]>('/alertas');
+      setAlertas(res.data);
+    } catch {
+      Alert.alert('Erro', 'Falha ao carregar os alertas.');
+    } finally {
+      setCarregando(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -49,24 +55,28 @@ export default function AlertasScreen() {
     setEditando(null);
   };
 
-  const salvarAlerta = () => {
-    if (!mensagem.trim() || !nivelRisco.trim()) {
+  const salvarAlerta = async () => {
+    if (!mensagem || !nivelRisco) {
       Alert.alert('Atenção', 'Preencha todos os campos antes de salvar.');
       return;
     }
 
-    const novoAlerta = { mensagem, nivelRisco };
+    const dados = { mensagem, nivelRisco };
 
-    const requisicao = editando
-      ? api.put(`/alertas/${editando.id}`, novoAlerta)
-      : api.post('/alertas', novoAlerta);
-
-    requisicao
-      .then(() => {
-        carregarAlertas();
-        limparCampos();
-      })
-      .catch(() => Alert.alert('Erro', 'Falha ao salvar o alerta'));
+    setSalvando(true);
+    try {
+      if (editando) {
+        await api.put(`/alertas/${editando.id}`, dados);
+      } else {
+        await api.post('/alertas', dados);
+      }
+      limparCampos();
+      carregarAlertas();
+    } catch {
+      Alert.alert('Erro', 'Erro ao salvar alerta.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const editarAlerta = (alerta: Alerta) => {
@@ -76,36 +86,39 @@ export default function AlertasScreen() {
   };
 
   const excluirAlerta = (id: number) => {
-    Alert.alert('Confirmação', 'Deseja realmente excluir este alerta?', [
+    Alert.alert('Confirmar', 'Deseja excluir este alerta?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Excluir',
         style: 'destructive',
-        onPress: () => {
-          api.delete(`/alertas/${id}`)
-            .then(() => carregarAlertas())
-            .catch(() => Alert.alert('Erro', 'Falha ao excluir o alerta'));
+        onPress: async () => {
+          try {
+            await api.delete(`/alertas/${id}`);
+            carregarAlertas();
+          } catch {
+            Alert.alert('Erro', 'Erro ao excluir alerta.');
+          }
         },
       },
     ]);
   };
 
   const alertasFiltrados = alertas.filter((alerta) => {
-    const nivelOk = filtroNivel ? alerta.nivelRisco === filtroNivel : true;
-    const textoOk = alerta.mensagem?.toLowerCase().includes(filtroTexto.toLowerCase()) ?? false;
-    return nivelOk && textoOk;
-  });
+  const nivelOk = filtroNivel ? alerta.nivelRisco === filtroNivel : true;
+  const textoOk = (alerta.mensagem ?? '').toLowerCase().includes(filtroTexto.toLowerCase());
+  return nivelOk && textoOk;
+});
 
-  const renderAlerta = ({ item }: { item: Alerta }) => (
+  const renderItem = ({ item }: { item: Alerta }) => (
     <View style={styles.card}>
       <Text style={styles.cardTitulo}>⚠️ {item.nivelRisco}</Text>
       <Text style={styles.cardMensagem}>{item.mensagem}</Text>
       <Text style={styles.cardData}>📅 {new Date(item.dataHora).toLocaleString()}</Text>
       <View style={styles.botoes}>
-        <TouchableOpacity onPress={() => editarAlerta(item)} style={styles.botaoEditar}>
+        <TouchableOpacity style={styles.botaoEditar} onPress={() => editarAlerta(item)}>
           <Text style={styles.textoBotao}>Editar</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => excluirAlerta(item.id)} style={styles.botaoExcluir}>
+        <TouchableOpacity style={styles.botaoExcluir} onPress={() => excluirAlerta(item.id)}>
           <Text style={styles.textoBotao}>Excluir</Text>
         </TouchableOpacity>
       </View>
@@ -114,60 +127,59 @@ export default function AlertasScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {carregando ? (
+      <Text style={styles.titulo}>Gerenciar Alertas</Text>
+
+      <View style={styles.formulario}>
+        <TextInput
+          placeholder="Mensagem do alerta"
+          style={styles.input}
+          value={mensagem}
+          onChangeText={setMensagem}
+        />
+
+        <Picker
+          selectedValue={nivelRisco}
+          onValueChange={setNivelRisco}
+          style={styles.input}
+        >
+          <Picker.Item label="Selecione o nível de risco" value="" />
+          <Picker.Item label="Baixo" value="Baixo" />
+          <Picker.Item label="Moderado" value="Moderado" />
+          <Picker.Item label="Alto" value="Alto" />
+          <Picker.Item label="Crítico" value="Crítico" />
+        </Picker>
+
+        <Button title={editando ? 'Atualizar' : 'Salvar'} onPress={salvarAlerta} />
+      </View>
+
+      <View style={styles.filtros}>
+        <TextInput
+          style={styles.input}
+          placeholder="🔍 Buscar por mensagem"
+          value={filtroTexto}
+          onChangeText={setFiltroTexto}
+        />
+        <Picker
+          selectedValue={filtroNivel}
+          onValueChange={setFiltroNivel}
+          style={styles.input}
+        >
+          <Picker.Item label="Todos os níveis" value="" />
+          <Picker.Item label="Baixo" value="Baixo" />
+          <Picker.Item label="Moderado" value="Moderado" />
+          <Picker.Item label="Alto" value="Alto" />
+          <Picker.Item label="Crítico" value="Crítico" />
+        </Picker>
+      </View>
+
+      {carregando || salvando ? (
         <ActivityIndicator size="large" color={theme.colors.primary} />
       ) : (
         <FlatList
           data={alertasFiltrados}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={renderAlerta}
+          renderItem={renderItem}
           contentContainerStyle={styles.lista}
-          ListHeaderComponent={
-            <View style={styles.formulario}>
-              <Text style={styles.titulo}>Gerenciar Alertas</Text>
-
-              <TextInput
-                placeholder="Mensagem do alerta"
-                style={styles.input}
-                value={mensagem}
-                onChangeText={setMensagem}
-              />
-
-              <Picker
-                selectedValue={nivelRisco}
-                onValueChange={(itemValue) => setNivelRisco(itemValue)}
-                style={styles.input}
-              >
-                <Picker.Item label="Selecione o nível de risco" value="" />
-                <Picker.Item label="Baixo" value="Baixo" />
-                <Picker.Item label="Moderado" value="Moderado" />
-                <Picker.Item label="Alto" value="Alto" />
-                <Picker.Item label="Crítico" value="Crítico" />
-              </Picker>
-
-              <Button title={editando ? 'Atualizar Alerta' : 'Salvar'} onPress={salvarAlerta} />
-
-              <View style={styles.filtros}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="🔍 Buscar por mensagem"
-                  value={filtroTexto}
-                  onChangeText={setFiltroTexto}
-                />
-                <Picker
-                  selectedValue={filtroNivel}
-                  onValueChange={(value) => setFiltroNivel(value)}
-                  style={styles.input}
-                >
-                  <Picker.Item label="Todos os níveis" value="" />
-                  <Picker.Item label="Baixo" value="Baixo" />
-                  <Picker.Item label="Moderado" value="Moderado" />
-                  <Picker.Item label="Alto" value="Alto" />
-                  <Picker.Item label="Crítico" value="Crítico" />
-                </Picker>
-              </View>
-            </View>
-          }
         />
       )}
     </SafeAreaView>
@@ -178,16 +190,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+    padding: theme.spacing.medium,
   },
   titulo: {
     fontSize: theme.fontSizes.large,
     fontWeight: 'bold',
     color: theme.colors.primary,
-    marginBottom: theme.spacing.medium,
     textAlign: 'center',
+    marginBottom: theme.spacing.medium,
   },
   formulario: {
-    padding: theme.spacing.medium,
+    marginBottom: theme.spacing.large,
   },
   input: {
     borderWidth: 1,
@@ -197,18 +210,17 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.small,
     backgroundColor: '#fff',
   },
+  filtros: {
+    marginBottom: theme.spacing.medium,
+  },
   lista: {
     paddingBottom: theme.spacing.large,
-    paddingHorizontal: theme.spacing.medium,
   },
   card: {
     backgroundColor: theme.colors.white,
     borderRadius: 8,
     padding: theme.spacing.medium,
     marginBottom: theme.spacing.small,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     elevation: 3,
   },
   cardTitulo: {
@@ -241,8 +253,5 @@ const styles = StyleSheet.create({
   textoBotao: {
     color: '#fff',
     fontWeight: 'bold',
-  },
-  filtros: {
-    marginTop: theme.spacing.medium,
   },
 });

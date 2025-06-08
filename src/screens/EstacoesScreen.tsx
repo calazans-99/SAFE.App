@@ -29,15 +29,13 @@ export default function EstacoesScreen() {
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [editandoId, setEditandoId] = useState<number | null>(null);
-
-  const [filtroCidade, setFiltroCidade] = useState('');
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
 
   const carregarEstacoes = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/estacoes');
+      const res = await api.get<Estacao[]>('/estacoes');
       setEstacoes(res.data);
     } catch {
       Alert.alert('Erro', 'Falha ao carregar estações.');
@@ -50,13 +48,13 @@ export default function EstacoesScreen() {
     carregarEstacoes();
   }, []);
 
-  const salvarOuAtualizarEstacao = async () => {
+  const salvarOuAtualizar = async () => {
     if (!nome || !localizacao || !cidade || !latitude || !longitude) {
       Alert.alert('Erro', 'Preencha todos os campos!');
       return;
     }
 
-    const estacao = {
+    const dados = {
       nome,
       localizacao,
       cidade,
@@ -67,36 +65,32 @@ export default function EstacoesScreen() {
     setSalvando(true);
     try {
       if (editandoId !== null) {
-        await api.put(`/estacoes/${editandoId}`, estacao);
+        await api.put(`/estacoes/${editandoId}`, dados);
       } else {
-        await api.post('/estacoes', estacao);
+        await api.post('/estacoes', dados);
       }
 
-      limparFormulario();
+      setNome('');
+      setLocalizacao('');
+      setCidade('');
+      setLatitude('');
+      setLongitude('');
+      setEditandoId(null);
       carregarEstacoes();
     } catch {
-      Alert.alert('Erro', 'Falha ao salvar estação');
+      Alert.alert('Erro', 'Falha ao salvar estação.');
     } finally {
       setSalvando(false);
     }
   };
 
-  const limparFormulario = () => {
-    setNome('');
-    setLocalizacao('');
-    setCidade('');
-    setLatitude('');
-    setLongitude('');
-    setEditandoId(null);
-  };
-
-  const editarEstacao = (est: Estacao) => {
-    setNome(est.nome);
-    setLocalizacao(est.localizacao);
-    setCidade(est.cidade);
-    setLatitude(est.latitude.toString());
-    setLongitude(est.longitude.toString());
-    setEditandoId(est.id);
+  const editarEstacao = (e: Estacao) => {
+    setEditandoId(e.id);
+    setNome(e.nome);
+    setLocalizacao(e.localizacao);
+    setCidade(e.cidade);
+    setLatitude(e.latitude.toString());
+    setLongitude(e.longitude.toString());
   };
 
   const excluirEstacao = (id: number) => {
@@ -110,27 +104,16 @@ export default function EstacoesScreen() {
             await api.delete(`/estacoes/${id}`);
             carregarEstacoes();
           } catch {
-            Alert.alert('Erro', 'Falha ao excluir estação');
+            Alert.alert('Erro', 'Falha ao excluir estação.');
           }
         },
       },
     ]);
   };
 
-  const estacoesFiltradas = estacoes.filter((e) =>
-    e.cidade.toLowerCase().includes(filtroCidade.toLowerCase())
-  );
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Gerenciar Estações</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="🔍 Filtrar por cidade"
-        value={filtroCidade}
-        onChangeText={setFiltroCidade}
-      />
 
       <TextInput
         style={styles.input}
@@ -153,41 +136,34 @@ export default function EstacoesScreen() {
       <TextInput
         style={styles.input}
         placeholder="Latitude"
-        keyboardType="numeric"
         value={latitude}
         onChangeText={setLatitude}
+        keyboardType="numeric"
       />
       <TextInput
         style={styles.input}
         placeholder="Longitude"
-        keyboardType="numeric"
         value={longitude}
         onChangeText={setLongitude}
+        keyboardType="numeric"
       />
 
       <Button
         title={editandoId ? 'Atualizar Estação' : 'Cadastrar Estação'}
-        onPress={salvarOuAtualizarEstacao}
+        onPress={salvarOuAtualizar}
       />
 
-      {salvando && (
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      )}
+      {salvando && <ActivityIndicator size="large" color={theme.colors.primary} />}
       {loading ? (
         <ActivityIndicator size="large" color={theme.colors.primary} />
-      ) : estacoesFiltradas.length === 0 ? (
-        <Text style={styles.empty}>Nenhuma estação encontrada.</Text>
       ) : (
-        estacoesFiltradas.map((estacao) => (
-          <View key={estacao.id} style={styles.card}>
-            <Text style={styles.cardTitle}>{estacao.nome}</Text>
-            <Text style={styles.cardInfo}>📍 Localização: {estacao.localizacao}</Text>
-            <Text style={styles.cardInfo}>🏙️ Cidade: {estacao.cidade}</Text>
-            <Text style={styles.cardInfo}>🧭 Lat: {estacao.latitude}</Text>
-            <Text style={styles.cardInfo}>🧭 Lng: {estacao.longitude}</Text>
-
-            <Button title="Editar" onPress={() => editarEstacao(estacao)} />
-            <Button title="Excluir" onPress={() => excluirEstacao(estacao.id)} />
+        estacoes.map((e) => (
+          <View key={e.id} style={styles.card}>
+            <Text style={styles.cardTitle}>{e.nome}</Text>
+            <Text style={styles.cardInfo}>📍 {e.localizacao} - {e.cidade}</Text>
+            <Text style={styles.cardInfo}>🌐 {e.latitude}, {e.longitude}</Text>
+            <Button title="Editar" onPress={() => editarEstacao(e)} />
+            <Button title="Excluir" onPress={() => excluirEstacao(e.id)} />
           </View>
         ))
       )}
@@ -232,11 +208,5 @@ const styles = StyleSheet.create({
   cardInfo: {
     fontSize: theme.fontSizes.small,
     color: theme.colors.text,
-  },
-  empty: {
-    textAlign: 'center',
-    color: theme.colors.text,
-    fontStyle: 'italic',
-    marginTop: 20,
   },
 });

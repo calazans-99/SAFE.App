@@ -1,15 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   Button,
   FlatList,
   ActivityIndicator,
   Alert,
+  StyleSheet,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import api from '../services/api';
 import theme from '../styles/theme';
 
@@ -18,12 +17,6 @@ interface Sensor {
   tipo: string;
   unidade: string;
   descricao: string;
-  estacaoId?: number;
-}
-
-interface Estacao {
-  id: number;
-  nome: string;
 }
 
 export default function SensoresScreen() {
@@ -33,70 +26,49 @@ export default function SensoresScreen() {
   const [descricao, setDescricao] = useState('');
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [salvando, setSalvando] = useState(false);
 
-  const [estacoes, setEstacoes] = useState<Estacao[]>([]);
-  const [estacaoSelecionada, setEstacaoSelecionada] = useState<number | null>(null);
-
-  const carregarSensores = useCallback(async () => {
+  const carregarSensores = async () => {
     setLoading(true);
     try {
-      const endpoint = estacaoSelecionada
-        ? `/sensor?estacaoId=${estacaoSelecionada}`
-        : '/sensor';
-
-      const res = await api.get<Sensor[]>(endpoint);
+      const res = await api.get<Sensor[]>('/sensor');
       setSensores(res.data);
     } catch {
-      Alert.alert('Erro', 'Falha ao carregar sensores');
+      Alert.alert('Erro', 'Não foi possível carregar os sensores.');
     } finally {
       setLoading(false);
-    }
-  }, [estacaoSelecionada]);
-
-  const carregarEstacoes = async () => {
-    try {
-      const res = await api.get<Estacao[]>('/estacoes');
-      setEstacoes(res.data);
-    } catch {
-      Alert.alert('Erro', 'Falha ao carregar estações');
     }
   };
 
   useEffect(() => {
-    carregarEstacoes();
     carregarSensores();
-  }, [carregarSensores]);
+  }, []);
 
   const salvarOuAtualizarSensor = async () => {
-    if (!tipo || !unidade || !estacaoSelecionada) {
-      Alert.alert('Erro', 'Preencha todos os campos!');
+    if (!tipo || !unidade || !descricao) {
+      Alert.alert('Erro', 'Preencha todos os campos.');
       return;
     }
 
-    const sensor = {
-      tipo,
-      unidade,
-      descricao,
-      estacaoId: estacaoSelecionada,
-    };
+    const dados = { tipo, unidade, descricao };
+    setSalvando(true);
 
-    setLoading(true);
     try {
       if (editandoId !== null) {
-        await api.put(`/sensor/${editandoId}`, sensor);
+        await api.put(`/sensor/${editandoId}`, dados);
       } else {
-        await api.post('/sensor', sensor);
+        await api.post('/sensor', dados);
       }
 
       setTipo('');
       setUnidade('');
       setDescricao('');
       setEditandoId(null);
-      await carregarSensores();
+      carregarSensores();
     } catch {
-      Alert.alert('Erro', 'Falha ao salvar ou atualizar sensor');
+      Alert.alert('Erro', 'Falha ao salvar sensor');
     } finally {
-      setLoading(false);
+      setSalvando(false);
     }
   };
 
@@ -104,12 +76,11 @@ export default function SensoresScreen() {
     setTipo(sensor.tipo);
     setUnidade(sensor.unidade);
     setDescricao(sensor.descricao);
-    setEstacaoSelecionada(sensor.estacaoId || null);
     setEditandoId(sensor.id);
   };
 
   const excluirSensor = (id: number) => {
-    Alert.alert('Confirmação', 'Deseja realmente excluir este sensor?', [
+    Alert.alert('Confirmar exclusão', 'Deseja excluir este sensor?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Excluir',
@@ -118,7 +89,7 @@ export default function SensoresScreen() {
           setLoading(true);
           try {
             await api.delete(`/sensor/${id}`);
-            await carregarSensores();
+            carregarSensores();
           } catch {
             Alert.alert('Erro', 'Falha ao excluir sensor');
           } finally {
@@ -129,7 +100,7 @@ export default function SensoresScreen() {
     ]);
   };
 
-  const renderSensor = ({ item }: { item: Sensor }) => (
+  const renderItem = ({ item }: { item: Sensor }) => (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{item.tipo}</Text>
       <Text style={styles.cardInfo}>Unidade: {item.unidade}</Text>
@@ -142,17 +113,6 @@ export default function SensoresScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Gerenciar Sensores</Text>
-
-      <Picker
-        selectedValue={estacaoSelecionada}
-        onValueChange={(value) => setEstacaoSelecionada(value)}
-        style={styles.input}
-      >
-        <Picker.Item label="Selecione uma estação" value={null} />
-        {estacoes.map((e) => (
-          <Picker.Item key={e.id} label={e.nome} value={e.id} />
-        ))}
-      </Picker>
 
       <TextInput
         style={styles.input}
@@ -178,13 +138,13 @@ export default function SensoresScreen() {
         onPress={salvarOuAtualizarSensor}
       />
 
-      {loading ? (
+      {(loading || salvando) ? (
         <ActivityIndicator size="large" color={theme.colors.primary} />
       ) : (
         <FlatList
           data={sensores}
-          renderItem={renderSensor}
           keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
           contentContainerStyle={styles.list}
         />
       )}
