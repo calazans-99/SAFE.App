@@ -9,7 +9,7 @@ import {
   Alert,
   TouchableOpacity,
   SafeAreaView,
-  ScrollView,
+  Button,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import api from '../services/api';
@@ -19,7 +19,6 @@ interface Alerta {
   id: number;
   mensagem: string;
   nivelRisco: string;
-  status: string;
   dataHora: string;
 }
 
@@ -27,9 +26,10 @@ export default function AlertasScreen() {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [mensagem, setMensagem] = useState('');
   const [nivelRisco, setNivelRisco] = useState('');
-  const [status, setStatus] = useState('Ativo');
   const [editando, setEditando] = useState<Alerta | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [filtroNivel, setFiltroNivel] = useState('');
+  const [filtroTexto, setFiltroTexto] = useState('');
 
   const carregarAlertas = useCallback(() => {
     setCarregando(true);
@@ -46,17 +46,16 @@ export default function AlertasScreen() {
   const limparCampos = () => {
     setMensagem('');
     setNivelRisco('');
-    setStatus('Ativo');
     setEditando(null);
   };
 
   const salvarAlerta = () => {
-    if (!mensagem.trim() || !nivelRisco.trim() || !status.trim()) {
-      Alert.alert('Atenção', 'Preencha todos os campos.');
+    if (!mensagem.trim() || !nivelRisco.trim()) {
+      Alert.alert('Atenção', 'Preencha todos os campos antes de salvar.');
       return;
     }
 
-    const novoAlerta = { mensagem, nivelRisco, status };
+    const novoAlerta = { mensagem, nivelRisco };
 
     const requisicao = editando
       ? api.put(`/alertas/${editando.id}`, novoAlerta)
@@ -74,7 +73,6 @@ export default function AlertasScreen() {
     setEditando(alerta);
     setMensagem(alerta.mensagem);
     setNivelRisco(alerta.nivelRisco);
-    setStatus(alerta.status);
   };
 
   const excluirAlerta = (id: number) => {
@@ -92,11 +90,16 @@ export default function AlertasScreen() {
     ]);
   };
 
+  const alertasFiltrados = alertas.filter((alerta) => {
+    const nivelOk = filtroNivel ? alerta.nivelRisco === filtroNivel : true;
+    const textoOk = alerta.mensagem?.toLowerCase().includes(filtroTexto.toLowerCase()) ?? false;
+    return nivelOk && textoOk;
+  });
+
   const renderAlerta = ({ item }: { item: Alerta }) => (
     <View style={styles.card}>
       <Text style={styles.cardTitulo}>⚠️ {item.nivelRisco}</Text>
       <Text style={styles.cardMensagem}>{item.mensagem}</Text>
-      <Text style={styles.cardStatus}>📌 Status: {item.status}</Text>
       <Text style={styles.cardData}>📅 {new Date(item.dataHora).toLocaleString()}</Text>
       <View style={styles.botoes}>
         <TouchableOpacity onPress={() => editarAlerta(item)} style={styles.botaoEditar}>
@@ -111,42 +114,60 @@ export default function AlertasScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.formulario}>
-        <Text style={styles.titulo}>Gerenciar Alertas</Text>
-
-        <TextInput
-          placeholder="Mensagem do alerta"
-          style={styles.input}
-          value={mensagem}
-          onChangeText={setMensagem}
-        />
-
-        <Picker selectedValue={nivelRisco} onValueChange={setNivelRisco} style={styles.picker}>
-          <Picker.Item label="Selecione o nível de risco" value="" />
-          <Picker.Item label="Baixo" value="Baixo" />
-          <Picker.Item label="Moderado" value="Moderado" />
-          <Picker.Item label="Alto" value="Alto" />
-          <Picker.Item label="Crítico" value="Crítico" />
-        </Picker>
-
-        <Picker selectedValue={status} onValueChange={setStatus} style={styles.picker}>
-          <Picker.Item label="Ativo" value="Ativo" />
-          <Picker.Item label="Resolvido" value="Resolvido" />
-        </Picker>
-
-        <TouchableOpacity style={styles.botaoSalvar} onPress={salvarAlerta}>
-          <Text style={styles.textoBotao}>Salvar</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
       {carregando ? (
         <ActivityIndicator size="large" color={theme.colors.primary} />
       ) : (
         <FlatList
-          data={alertas}
+          data={alertasFiltrados}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderAlerta}
           contentContainerStyle={styles.lista}
+          ListHeaderComponent={
+            <View style={styles.formulario}>
+              <Text style={styles.titulo}>Gerenciar Alertas</Text>
+
+              <TextInput
+                placeholder="Mensagem do alerta"
+                style={styles.input}
+                value={mensagem}
+                onChangeText={setMensagem}
+              />
+
+              <Picker
+                selectedValue={nivelRisco}
+                onValueChange={(itemValue) => setNivelRisco(itemValue)}
+                style={styles.input}
+              >
+                <Picker.Item label="Selecione o nível de risco" value="" />
+                <Picker.Item label="Baixo" value="Baixo" />
+                <Picker.Item label="Moderado" value="Moderado" />
+                <Picker.Item label="Alto" value="Alto" />
+                <Picker.Item label="Crítico" value="Crítico" />
+              </Picker>
+
+              <Button title={editando ? 'Atualizar Alerta' : 'Salvar'} onPress={salvarAlerta} />
+
+              <View style={styles.filtros}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="🔍 Buscar por mensagem"
+                  value={filtroTexto}
+                  onChangeText={setFiltroTexto}
+                />
+                <Picker
+                  selectedValue={filtroNivel}
+                  onValueChange={(value) => setFiltroNivel(value)}
+                  style={styles.input}
+                >
+                  <Picker.Item label="Todos os níveis" value="" />
+                  <Picker.Item label="Baixo" value="Baixo" />
+                  <Picker.Item label="Moderado" value="Moderado" />
+                  <Picker.Item label="Alto" value="Alto" />
+                  <Picker.Item label="Crítico" value="Crítico" />
+                </Picker>
+              </View>
+            </View>
+          }
         />
       )}
     </SafeAreaView>
@@ -176,24 +197,9 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.small,
     backgroundColor: '#fff',
   },
-  picker: {
-    backgroundColor: '#fff',
-    marginBottom: theme.spacing.small,
-    borderRadius: 8,
-  },
-  botaoSalvar: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.small,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: theme.spacing.large,
-  },
-  textoBotao: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
   lista: {
     paddingBottom: theme.spacing.large,
+    paddingHorizontal: theme.spacing.medium,
   },
   card: {
     backgroundColor: theme.colors.white,
@@ -213,10 +219,6 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.small,
     color: theme.colors.text,
   },
-  cardStatus: {
-    fontSize: theme.fontSizes.small,
-    color: theme.colors.text,
-  },
   cardData: {
     color: '#666',
     fontSize: theme.fontSizes.small,
@@ -224,7 +226,7 @@ const styles = StyleSheet.create({
   botoes: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: theme.spacing.small,
   },
   botaoEditar: {
     backgroundColor: '#007bff',
@@ -235,5 +237,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#dc3545',
     padding: 6,
     borderRadius: 5,
+  },
+  textoBotao: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  filtros: {
+    marginTop: theme.spacing.medium,
   },
 });

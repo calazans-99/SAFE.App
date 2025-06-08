@@ -6,9 +6,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import api from '../services/api';
+import Tabs from '../navigation/Tabs';
 import LoginScreen from '../screens/LoginScreen';
-import Tabs from './Tabs';
-import { RootStackParamList } from './navigationTypes';
+import { RootStackParamList } from '../navigation/navigationTypes';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -21,7 +21,7 @@ export default function AppNavigator() {
       if (!token) return setLogado(false);
 
       try {
-        await api.get('/alertas'); // endpoint protegido
+        await api.get('/alertas');
         setLogado(true);
       } catch {
         await AsyncStorage.removeItem('token');

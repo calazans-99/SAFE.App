@@ -48,12 +48,29 @@ export default function ConfigScreen() {
       await AsyncStorage.setItem('notificacoes', JSON.stringify(notificacoes));
       await AsyncStorage.setItem('modoEscuro', JSON.stringify(modoEscuro));
       await AsyncStorage.setItem('idioma', idioma);
-      Alert.alert('Salvo', 'Configurações atualizadas com sucesso!');
     } catch (error) {
       Alert.alert('Erro', 'Falha ao salvar configurações');
     } finally {
       setLoading(false);
     }
+  };
+
+  const restaurarPadroes = async () => {
+    setNotificacoes(true);
+    setModoEscuro(false);
+    setIdioma('pt');
+    await salvarConfiguracoes();
+  };
+
+  const confirmarLogout = () => {
+    Alert.alert('Sair da conta', 'Deseja realmente sair da sua conta?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Sair',
+        style: 'destructive',
+        onPress: () => logout(navigation),
+      },
+    ]);
   };
 
   return (
@@ -64,9 +81,11 @@ export default function ConfigScreen() {
         <Text style={styles.label}>🔔 Notificações</Text>
         <Switch
           value={notificacoes}
-          onValueChange={(value) => setNotificacoes(value)}
+          onValueChange={(value) => {
+            setNotificacoes(value);
+            salvarConfiguracoes();
+          }}
           trackColor={{ true: theme.colors.primary }}
-          accessibilityLabel="Ativar/desativar notificações"
         />
       </View>
 
@@ -74,9 +93,11 @@ export default function ConfigScreen() {
         <Text style={styles.label}>🌙 Modo Escuro</Text>
         <Switch
           value={modoEscuro}
-          onValueChange={(value) => setModoEscuro(value)}
+          onValueChange={(value) => {
+            setModoEscuro(value);
+            salvarConfiguracoes();
+          }}
           trackColor={{ true: theme.colors.primary }}
-          accessibilityLabel="Ativar/desativar modo escuro"
         />
       </View>
 
@@ -84,24 +105,21 @@ export default function ConfigScreen() {
         <Text style={styles.label}>🌐 Idioma</Text>
         <Picker
           selectedValue={idioma}
-          onValueChange={(itemValue) => setIdioma(itemValue)}
+          onValueChange={(itemValue: string) => {
+            setIdioma(itemValue);
+            salvarConfiguracoes();
+          }}
           style={styles.picker}
-          accessibilityLabel="Selecionar idioma"
         >
           <Picker.Item label="Português" value="pt" />
           <Picker.Item label="Inglês" value="en" />
         </Picker>
       </View>
 
-      <Button title="Salvar Configurações" onPress={salvarConfiguracoes} />
-
       <View style={styles.logoutContainer}>
-        <Text style={styles.label}>🔓 Sair da Conta</Text>
-        <Button
-          title="Logout"
-          color={theme.colors.alert}
-          onPress={() => logout(navigation)}
-        />
+        <Button title="Logout" color={theme.colors.alert} onPress={confirmarLogout} />
+        <View style={{ height: theme.spacing.small }} />
+        <Button title="Restaurar Padrões" onPress={restaurarPadroes} />
       </View>
 
       {loading && (
@@ -141,6 +159,5 @@ const styles = StyleSheet.create({
   },
   logoutContainer: {
     marginTop: theme.spacing.large,
-    alignItems: 'center',
   },
 });

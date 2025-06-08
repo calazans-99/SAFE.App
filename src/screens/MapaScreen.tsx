@@ -4,22 +4,23 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  TextInput,
-  Modal,
   Text,
+  Modal,
   FlatList,
   TouchableOpacity,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import api from '../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { Picker } from '@react-native-picker/picker';
 import theme from '../styles/theme';
 
 interface Estacao {
   id: number;
   nome: string;
+  cidade: string;
   latitude: number;
   longitude: number;
-  cidade: string;
 }
 
 interface Sensor {
@@ -31,7 +32,7 @@ interface Sensor {
 
 export default function MapaScreen() {
   const [estacoes, setEstacoes] = useState<Estacao[]>([]);
-  const [filtro, setFiltro] = useState('');
+  const [cidadeSelecionada, setCidadeSelecionada] = useState('');
   const [loading, setLoading] = useState(true);
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -41,98 +42,119 @@ export default function MapaScreen() {
   const fetchEstacoes = async () => {
     setLoading(true);
     try {
-      const response = await api.get<Estacao[]>('/estacoes');
+      const token = await AsyncStorage.getItem('token');
+      const response = await axios.get('http://192.168.0.67:8080/api/estacoes', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setEstacoes(response.data);
-    } catch {
-      Alert.alert('Erro', 'Não foi possível carregar as estações.');
+    } catch (error) {
+      Alert.alert('Erro', 'Falha ao buscar estações');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchSensoresDaEstacao = async (estacaoId: number) => {
+  const buscarSensoresPorEstacao = async (estacaoId: number) => {
     try {
-      const response = await api.get<Sensor[]>(`/sensor?estacaoId=${estacaoId}`);
-      setSensores(response.data);
-    } catch {
-      Alert.alert('Erro', 'Falha ao buscar sensores da estação.');
+      const token = await AsyncStorage.getItem('token');
+      const res = await axios.get(`http://192.168.0.67:8080/api/sensor`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const filtrados = res.data.filter((s: any) => s.estacao?.id === estacaoId);
+      setSensores(filtrados);
+    } catch (error) {
+      Alert.alert('Erro', 'Falha ao buscar sensores');
     }
   };
 
-  const handlePressMarker = (estacao: Estacao) => {
+  const abrirModal = (estacao: Estacao) => {
     setEstacaoSelecionada(estacao);
-    fetchSensoresDaEstacao(estacao.id);
+    buscarSensoresPorEstacao(estacao.id);
     setModalVisible(true);
   };
+
+  const estacoesFiltradas = cidadeSelecionada
+    ? estacoes.filter((e) => e.cidade === cidadeSelecionada)
+    : estacoes;
+
+  const cidadesUnicas = Array.from(new Set(estacoes.map((e) => e.cidade)));
 
   useEffect(() => {
     fetchEstacoes();
   }, []);
 
-  const estacoesFiltradas = estacoes.filter(
-    (e) =>
-      e.nome.toLowerCase().includes(filtro.toLowerCase()) ||
-      e.cidade.toLowerCase().includes(filtro.toLowerCase())
-  );
-
   return (
     <View style={styles.container}>
-      <TextInput
-        style={styles.input}
-        placeholder="Buscar estação por nome ou cidade"
-        value={filtro}
-        onChangeText={setFiltro}
-      />
-
       {loading ? (
         <ActivityIndicator size="large" color={theme.colors.primary} />
       ) : (
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: estacoes.length > 0 ? estacoes[0].latitude : -23.5,
-            longitude: estacoes.length > 0 ? estacoes[0].longitude : -46.6,
-            latitudeDelta: 0.5,
-            longitudeDelta: 0.5,
-          }}
-        >
-          {estacoesFiltradas.map((est) => (
-            <Marker
-              key={est.id}
-              coordinate={{ latitude: est.latitude, longitude: est.longitude }}
-              title={est.nome}
-              description={`Cidade: ${est.cidade}`}
-              onPress={() => handlePressMarker(est)}
-            />
-          ))}
-        </MapView>
+        <>
+          <Picker
+            selectedValue={cidadeSelecionada}
+            onValueChange={setCidadeSelecionada}
+            style={styles.picker}
+          >
+            <Picker.Item label="Todas as cidades" value="" />
+            {cidadesUnicas.map((cidade) => (
+              <Picker.Item key={cidade} label={cidade} value={cidade} />
+            ))}
+          </Picker>
+
+          <MapView
+            style={styles.map}
+            initialRegion={{
+              latitude:
+                estacoesFiltradas.length > 0 ? estacoesFiltradas[0].latitude : -23.5,
+              longitude:
+                estacoesFiltradas.length > 0 ? estacoesFiltradas[0].longitude : -46.6,
+              latitudeDelta: 0.5,
+              longitudeDelta: 0.5,
+            }}
+          >
+            {estacoesFiltradas.map((est) => (
+              <Marker
+                key={est.id}
+                coordinate={{
+                  latitude: est.latitude,
+                  longitude: est.longitude,
+                }}
+                title={est.nome}
+                description={`Cidade: ${est.cidade}`}
+                onPress={() => abrirModal(est)}
+              />
+            ))}
+          </MapView>
+        </>
       )}
 
-      <Modal visible={modalVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              Sensores da estação: {estacaoSelecionada?.nome}
-            </Text>
-            {sensores.length === 0 ? (
-              <Text style={styles.modalEmpty}>Nenhum sensor encontrado.</Text>
-            ) : (
-              <FlatList
-                data={sensores}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
-                  <View style={styles.sensorCard}>
-                    <Text>📟 Tipo: {item.tipo}</Text>
-                    <Text>🔧 Unidade: {item.unidade}</Text>
-                    <Text>📝 Descrição: {item.descricao}</Text>
-                  </View>
-                )}
-              />
-            )}
-            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.fechar}>
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Fechar</Text>
-            </TouchableOpacity>
-          </View>
+      <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modal}>
+          <Text style={styles.modalTitle}>
+            Sensores da estação: {estacaoSelecionada?.nome}
+          </Text>
+
+          {sensores.length === 0 ? (
+            <Text style={styles.empty}>Nenhum sensor encontrado.</Text>
+          ) : (
+            <FlatList
+              data={sensores}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <View style={styles.sensorCard}>
+                  <Text style={styles.sensorTitle}>{item.tipo}</Text>
+                  <Text>Unidade: {item.unidade}</Text>
+                  <Text>Descrição: {item.descricao}</Text>
+                </View>
+              )}
+            />
+          )}
+
+          <TouchableOpacity
+            style={styles.botaoFechar}
+            onPress={() => setModalVisible(false)}
+          >
+            <Text style={styles.textoFechar}>Fechar</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
     </View>
@@ -147,49 +169,45 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  input: {
+  picker: {
     backgroundColor: '#fff',
-    padding: 10,
-    margin: 8,
-    borderRadius: 8,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    zIndex: 1,
   },
-  modalContainer: {
+  modal: {
     flex: 1,
-    backgroundColor: '#000000aa',
-    justifyContent: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    margin: 20,
-    padding: 20,
-    borderRadius: 8,
-    maxHeight: '80%',
+    padding: 16,
+    backgroundColor: theme.colors.background,
   },
   modalTitle: {
-    fontSize: theme.fontSizes.medium,
+    fontSize: theme.fontSizes.large,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 16,
     color: theme.colors.primary,
   },
-  modalEmpty: {
-    fontStyle: 'italic',
-    color: '#666',
-    textAlign: 'center',
-  },
   sensorCard: {
-    backgroundColor: '#f0f0f0',
-    padding: 10,
-    marginBottom: 8,
-    borderRadius: 6,
+    backgroundColor: '#fff',
+    padding: 12,
+    marginBottom: 10,
+    borderRadius: 8,
+    elevation: 2,
   },
-  fechar: {
-    marginTop: 12,
+  sensorTitle: {
+    fontWeight: 'bold',
+  },
+  botaoFechar: {
+    marginTop: 16,
     backgroundColor: theme.colors.primary,
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  textoFechar: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  empty: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontStyle: 'italic',
+    color: theme.colors.text,
   },
 });

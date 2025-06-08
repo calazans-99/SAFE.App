@@ -13,16 +13,15 @@ import EstacoesScreen from '../screens/EstacoesScreen';
 import ConfigScreen from '../screens/ConfigScreen';
 import InstrucoesScreen from '../screens/InstrucoesScreen';
 
-
-type RootTabParamList = {
+export type RootTabParamList = {
   Alertas: undefined;
   Mapa: undefined;
+  Sensores: undefined;
   Leituras: undefined;
   Riscos: undefined;
   Estacoes: undefined;
   Config: undefined;
   Instrucoes: undefined;
-  Sensores: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -32,52 +31,34 @@ export default function Tabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap;
-
-          switch (route.name) {
-            case 'Alertas':
-              iconName = 'alert-circle';
-              break;
-            case 'Mapa':
-              iconName = 'map';
-              break;
-            case 'Leituras':
-              iconName = 'stats-chart';
-              break;
-            case 'Riscos':
-              iconName = 'warning';
-              break;
-            case 'Estacoes':
-              iconName = 'cloudy-night';
-              break;
-            case 'Config':
-              iconName = 'settings';
-              break;
-            case 'Instrucoes':
-              iconName = 'book';
-              break;
-            case 'Sensores':
-              iconName = 'hardware-chip';
-              break;
-            default:
-              iconName = 'apps';
-          }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
         tabBarActiveTintColor: '#1d3557',
         tabBarInactiveTintColor: 'gray',
+        tabBarLabelStyle: { fontSize: 12 },
+        tabBarIcon: ({ color, size }) => {
+          const icons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> = {
+            Alertas: 'notifications',
+            Mapa: 'map',
+            Sensores: 'hardware-chip',
+            Leituras: 'stats-chart',
+            Riscos: 'warning',
+            Estacoes: 'cloudy-night',
+            Config: 'settings',
+            Instrucoes: 'book',
+          };
+
+          const iconName = icons[route.name as keyof RootTabParamList] || 'apps';
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
       })}
     >
-      <Tab.Screen name="Alertas" component={AlertasScreen} />
       <Tab.Screen name="Mapa" component={MapaScreen} />
+      <Tab.Screen name="Estacoes" component={EstacoesScreen} />
       <Tab.Screen name="Sensores" component={SensoresScreen} />
       <Tab.Screen name="Leituras" component={LeiturasScreen} />
       <Tab.Screen name="Riscos" component={RiscosScreen} />
-      <Tab.Screen name="Estacoes" component={EstacoesScreen} />
-      <Tab.Screen name="Config" component={ConfigScreen} />
+      <Tab.Screen name="Alertas" component={AlertasScreen} />
       <Tab.Screen name="Instrucoes" component={InstrucoesScreen} />
+      <Tab.Screen name="Config" component={ConfigScreen} />
     </Tab.Navigator>
   );
 }

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import api from '../services/api';
 import theme from '../styles/theme';
 
@@ -16,37 +17,58 @@ interface Sensor {
   id: number;
   tipo: string;
   unidade: string;
-  valorMinimo: number;
-  valorMaximo: number;
+  descricao: string;
+  estacaoId?: number;
+}
+
+interface Estacao {
+  id: number;
+  nome: string;
 }
 
 export default function SensoresScreen() {
   const [sensores, setSensores] = useState<Sensor[]>([]);
   const [tipo, setTipo] = useState('');
   const [unidade, setUnidade] = useState('');
-  const [valorMinimo, setValorMinimo] = useState('');
-  const [valorMaximo, setValorMaximo] = useState('');
+  const [descricao, setDescricao] = useState('');
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const [estacoes, setEstacoes] = useState<Estacao[]>([]);
+  const [estacaoSelecionada, setEstacaoSelecionada] = useState<number | null>(null);
 
   const carregarSensores = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get<Sensor[]>('/sensor');
+      const endpoint = estacaoSelecionada
+        ? `/sensor?estacaoId=${estacaoSelecionada}`
+        : '/sensor';
+
+      const res = await api.get<Sensor[]>(endpoint);
       setSensores(res.data);
-    } catch (error) {
+    } catch {
       Alert.alert('Erro', 'Falha ao carregar sensores');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [estacaoSelecionada]);
+
+  const carregarEstacoes = async () => {
+    try {
+      const res = await api.get<Estacao[]>('/estacoes');
+      setEstacoes(res.data);
+    } catch {
+      Alert.alert('Erro', 'Falha ao carregar estações');
+    }
+  };
 
   useEffect(() => {
+    carregarEstacoes();
     carregarSensores();
   }, [carregarSensores]);
 
   const salvarOuAtualizarSensor = async () => {
-    if (!tipo || !unidade || !valorMinimo || !valorMaximo) {
+    if (!tipo || !unidade || !estacaoSelecionada) {
       Alert.alert('Erro', 'Preencha todos os campos!');
       return;
     }
@@ -54,8 +76,8 @@ export default function SensoresScreen() {
     const sensor = {
       tipo,
       unidade,
-      valorMinimo: parseFloat(valorMinimo),
-      valorMaximo: parseFloat(valorMaximo),
+      descricao,
+      estacaoId: estacaoSelecionada,
     };
 
     setLoading(true);
@@ -68,8 +90,7 @@ export default function SensoresScreen() {
 
       setTipo('');
       setUnidade('');
-      setValorMinimo('');
-      setValorMaximo('');
+      setDescricao('');
       setEditandoId(null);
       await carregarSensores();
     } catch {
@@ -82,8 +103,8 @@ export default function SensoresScreen() {
   const editarSensor = (sensor: Sensor) => {
     setTipo(sensor.tipo);
     setUnidade(sensor.unidade);
-    setValorMinimo(sensor.valorMinimo.toString());
-    setValorMaximo(sensor.valorMaximo.toString());
+    setDescricao(sensor.descricao);
+    setEstacaoSelecionada(sensor.estacaoId || null);
     setEditandoId(sensor.id);
   };
 
@@ -112,7 +133,7 @@ export default function SensoresScreen() {
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{item.tipo}</Text>
       <Text style={styles.cardInfo}>Unidade: {item.unidade}</Text>
-      <Text style={styles.cardInfo}>Mín: {item.valorMinimo} | Máx: {item.valorMaximo}</Text>
+      <Text style={styles.cardInfo}>Descrição: {item.descricao}</Text>
       <Button title="Editar" onPress={() => editarSensor(item)} />
       <Button title="Excluir" onPress={() => excluirSensor(item.id)} />
     </View>
@@ -121,6 +142,17 @@ export default function SensoresScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Gerenciar Sensores</Text>
+
+      <Picker
+        selectedValue={estacaoSelecionada}
+        onValueChange={(value) => setEstacaoSelecionada(value)}
+        style={styles.input}
+      >
+        <Picker.Item label="Selecione uma estação" value={null} />
+        {estacoes.map((e) => (
+          <Picker.Item key={e.id} label={e.nome} value={e.id} />
+        ))}
+      </Picker>
 
       <TextInput
         style={styles.input}
@@ -136,17 +168,9 @@ export default function SensoresScreen() {
       />
       <TextInput
         style={styles.input}
-        placeholder="Valor Mínimo"
-        value={valorMinimo}
-        onChangeText={setValorMinimo}
-        keyboardType="decimal-pad"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Valor Máximo"
-        value={valorMaximo}
-        onChangeText={setValorMaximo}
-        keyboardType="decimal-pad"
+        placeholder="Descrição"
+        value={descricao}
+        onChangeText={setDescricao}
       />
 
       <Button

@@ -3,31 +3,36 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
   StyleSheet,
   ActivityIndicator,
   Alert,
   Button,
+  FlatList,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import api from '../services/api';
 import theme from '../styles/theme';
 
 interface Risco {
   id: number;
+  descricao: string;
   nivel: string;
-  tipo: string;
-  valor: number;
-  dataRisco: string;
+  data: string;
 }
 
 export default function RiscosScreen() {
   const [riscos, setRiscos] = useState<Risco[]>([]);
+  const [descricao, setDescricao] = useState('');
   const [nivel, setNivel] = useState('');
-  const [tipo, setTipo] = useState('');
-  const [valor, setValor] = useState('');
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [filtroNivel, setFiltroNivel] = useState('');
+  const [filtroTexto, setFiltroTexto] = useState('');
+
+  useEffect(() => {
+    carregarRiscos();
+  }, []);
 
   const carregarRiscos = async () => {
     setLoading(true);
@@ -41,33 +46,23 @@ export default function RiscosScreen() {
     }
   };
 
-  useEffect(() => {
-    carregarRiscos();
-  }, []);
-
   const salvarOuAtualizarRisco = async () => {
-    if (!nivel || !tipo || !valor) {
+    if (!descricao || !nivel) {
       Alert.alert('Erro', 'Preencha todos os campos.');
       return;
     }
 
-    const riscoPayload = {
-      nivel,
-      tipo,
-      valor: parseFloat(valor),
-    };
-
     setSalvando(true);
     try {
+      const data = { descricao, nivel };
       if (editandoId !== null) {
-        await api.put(`/risco/${editandoId}`, riscoPayload);
+        await api.put(`/risco/${editandoId}`, data);
       } else {
-        await api.post('/risco', riscoPayload);
+        await api.post('/risco', data);
       }
 
+      setDescricao('');
       setNivel('');
-      setTipo('');
-      setValor('');
       setEditandoId(null);
       carregarRiscos();
     } catch {
@@ -78,9 +73,8 @@ export default function RiscosScreen() {
   };
 
   const editarRisco = (risco: Risco) => {
+    setDescricao(risco.descricao);
     setNivel(risco.nivel);
-    setTipo(risco.tipo);
-    setValor(risco.valor.toString());
     setEditandoId(risco.id);
   };
 
@@ -102,66 +96,99 @@ export default function RiscosScreen() {
     ]);
   };
 
+  const riscosFiltrados = riscos.filter((r) => {
+    const nivelOk = filtroNivel ? r.nivel === filtroNivel : true;
+    const textoOk = r.descricao?.toLowerCase().includes(filtroTexto.toLowerCase()) ?? false;
+    return nivelOk && textoOk;
+  });
+
+  const renderItem = ({ item }: { item: Risco }) => (
+    <View style={styles.card}>
+      <Text style={styles.nivel}>⚠️ Nível: {item.nivel}</Text>
+      <Text>{item.descricao}</Text>
+      <Text style={styles.data}>
+        📅 {new Date(item.data).toLocaleString()}
+      </Text>
+      <Button title="Editar" onPress={() => editarRisco(item)} />
+      <Button title="Excluir" onPress={() => excluirRisco(item.id)} />
+    </View>
+  );
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Riscos Detectados</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Nível de risco"
-        value={nivel}
-        onChangeText={setNivel}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Tipo"
-        value={tipo}
-        onChangeText={setTipo}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Valor"
-        value={valor}
-        onChangeText={setValor}
-        keyboardType="numeric"
-      />
-
-      <Button
-        title={editandoId ? 'Atualizar Risco' : 'Cadastrar Risco'}
-        onPress={salvarOuAtualizarRisco}
-      />
-
-      {salvando && <ActivityIndicator size="large" color={theme.colors.primary} />}
-      {loading ? (
+    <View style={styles.container}>
+      {salvando || loading ? (
         <ActivityIndicator size="large" color={theme.colors.primary} />
-      ) : riscos.length === 0 ? (
-        <Text style={styles.empty}>Nenhum risco detectado.</Text>
       ) : (
-        riscos.map((risco) => (
-          <View key={risco.id} style={styles.card}>
-            <Text style={styles.nivel}>⚠️ Nível: {risco.nivel}</Text>
-            <Text>Tipo: {risco.tipo}</Text>
-            <Text>Valor: {risco.valor}</Text>
-            <Text style={styles.data}>📅 {new Date(risco.dataRisco).toLocaleString()}</Text>
-            <Button title="Editar" onPress={() => editarRisco(risco)} />
-            <Button title="Excluir" onPress={() => excluirRisco(risco.id)} />
-          </View>
-        ))
+        <FlatList
+          data={riscosFiltrados}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          contentContainerStyle={styles.lista}
+          ListHeaderComponent={
+            <View>
+              <Text style={styles.title}>Riscos Detectados</Text>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Descrição do risco"
+                value={descricao}
+                onChangeText={setDescricao}
+              />
+
+              <Picker
+                selectedValue={nivel}
+                onValueChange={setNivel}
+                style={styles.input}
+              >
+                <Picker.Item label="Selecione o nível de risco" value="" />
+                <Picker.Item label="Baixo" value="Baixo" />
+                <Picker.Item label="Moderado" value="Moderado" />
+                <Picker.Item label="Alto" value="Alto" />
+                <Picker.Item label="Crítico" value="Crítico" />
+              </Picker>
+
+              <Button
+                title={editandoId ? 'Atualizar Risco' : 'Cadastrar Risco'}
+                onPress={salvarOuAtualizarRisco}
+              />
+
+              <View style={styles.filtros}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="🔍 Buscar por descrição"
+                  value={filtroTexto}
+                  onChangeText={setFiltroTexto}
+                />
+                <Picker
+                  selectedValue={filtroNivel}
+                  onValueChange={setFiltroNivel}
+                  style={styles.input}
+                >
+                  <Picker.Item label="Todos os níveis" value="" />
+                  <Picker.Item label="Baixo" value="Baixo" />
+                  <Picker.Item label="Moderado" value="Moderado" />
+                  <Picker.Item label="Alto" value="Alto" />
+                  <Picker.Item label="Crítico" value="Crítico" />
+                </Picker>
+              </View>
+            </View>
+          }
+        />
       )}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: theme.spacing.large,
-    backgroundColor: theme.colors.light.background,
-    flexGrow: 1,
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    padding: theme.spacing.medium,
   },
   title: {
     fontSize: theme.fontSizes.large,
     fontWeight: 'bold',
-    color: theme.colors.light.primary,
+    color: theme.colors.primary,
     textAlign: 'center',
     marginBottom: theme.spacing.medium,
   },
@@ -174,7 +201,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   card: {
-    backgroundColor: theme.colors.light.white,
+    backgroundColor: theme.colors.white,
     padding: theme.spacing.medium,
     borderRadius: theme.radius.medium,
     marginBottom: theme.spacing.small,
@@ -187,12 +214,13 @@ const styles = StyleSheet.create({
   },
   data: {
     marginTop: 4,
-    color: theme.colors.light.text,
+    color: theme.colors.text,
     fontSize: theme.fontSizes.small,
   },
-  empty: {
-    textAlign: 'center',
-    color: theme.colors.light.text,
-    fontStyle: 'italic',
+  filtros: {
+    marginTop: theme.spacing.large,
+  },
+  lista: {
+    paddingBottom: theme.spacing.large,
   },
 });
